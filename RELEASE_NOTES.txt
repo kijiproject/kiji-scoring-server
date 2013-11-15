@@ -1,0 +1,6 @@
+
+                              Kiji Scoring Server Release Notes
+
+Version 0.9.0
+  * Initial re-commit of the scoring server in a separate project. Please see release notes
+    under the kiji-model-repository for more information about release notes prior to this version.

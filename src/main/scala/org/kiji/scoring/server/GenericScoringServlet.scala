@@ -34,9 +34,9 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.hbase.HBaseConfiguration
 import org.apache.hadoop.hbase.HConstants
 
-import org.kiji.express.flow.Cell
-import org.kiji.express.flow.EntityId
 import org.kiji.express.flow.ColumnInputSpec
+import org.kiji.express.flow.EntityId
+import org.kiji.express.flow.FlowCell
 import org.kiji.express.flow.framework.KijiScheme
 import org.kiji.express.flow.util.GenericRowDataConverter
 import org.kiji.express.flow.util.Tuples
@@ -182,7 +182,7 @@ class GenericScoringServlet extends HttpServlet {
                 .iterator(columnName.getFamily, columnName.getQualifier)
                 .asScala
                 .toIterable
-                .map { kijiCell: KijiCell[_] => Cell(kijiCell) }
+                .map { kijiCell: KijiCell[_] => FlowCell(kijiCell) }
 
             slice
           } else {
@@ -190,7 +190,7 @@ class GenericScoringServlet extends HttpServlet {
                 .iterator(columnName.getFamily)
                 .asScala
                 .toIterable
-                .map { kijiCell: KijiCell[_] => Cell(kijiCell) }
+                .map { kijiCell: KijiCell[_] => FlowCell(kijiCell) }
 
             slice
           }

@@ -19,8 +19,8 @@
 
 package org.kiji.lifecycle
 
-import org.kiji.express.flow.Cell
 import org.kiji.modeling.Extractor
+import org.kiji.express.flow.FlowCell
 import org.kiji.modeling.Scorer
 
 /**
@@ -29,7 +29,7 @@ import org.kiji.modeling.Scorer
  * 'jennyanydots' is set, in which case the length of its value is returned instead.
  */
 class DummyExtractorScorer extends Extractor with Scorer {
-  override val extractFn = extract('email_address -> 'word) { line: Seq[Cell[CharSequence]] =>
+  override val extractFn = extract('email_address -> 'word) { line: Seq[FlowCell[CharSequence]] =>
     line.head.datum
   }
 

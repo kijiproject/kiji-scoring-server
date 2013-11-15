@@ -1,0 +1,1 @@
+This is where Jetty instances go. The web application snippets will define an endpoint and it's possible that many instances may share the underlying war file hence saving classes from being loaded into the web container.

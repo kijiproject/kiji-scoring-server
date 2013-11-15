@@ -1,0 +1,1 @@
+This is where actual war files are downloaded from the model repository. There can be many war files that are simultaneiously deployed; however, these do NOT necessarily correspond to a single web application endpoint. Once deployed here, a template directory will be created in the templates/ folder as well as an instance folder that defines the actual endpoint.
