@@ -38,10 +38,10 @@
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <kiji-schema.version>1.3.3</kiji-schema.version>
     <kiji-scoring.version>0.9.0</kiji-scoring.version>
-    <kiji-express.version>0.13.0-SNAPSHOT</kiji-express.version>
-    <kiji-modeling.version>0.3.0-SNAPSHOT</kiji-modeling.version>
+    <kiji-express.version>0.13.0</kiji-express.version>
+    <kiji-modeling.version>0.3.0</kiji-modeling.version>
     <kiji-mapreduce.version>1.2.2</kiji-mapreduce.version>
-    <kiji-model-repo.version>0.4.0-SNAPSHOT</kiji-model-repo.version>
+    <kiji-model-repo.version>0.4.0</kiji-model-repo.version>
     <fake-hbase.version>0.1.3</fake-hbase.version>
     <jetty.version>8.1.12.v20130726</jetty.version>
     <junit.version>4.11</junit.version>
