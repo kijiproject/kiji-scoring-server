@@ -21,19 +21,24 @@ package org.kiji.scoring.server
 
 import java.io.File
 import java.io.PrintWriter
+
 import scala.collection.JavaConverters.asScalaSetConverter
 import scala.collection.mutable
-import scala.io.{BufferedSource, Source}
+import scala.io.BufferedSource
+import scala.io.Source
+
+import com.google.common.io.Files
 import org.apache.commons.io.FileUtils
 import org.apache.commons.io.FilenameUtils
 import org.eclipse.jetty.overlays.OverlayedAppProvider
-import org.slf4j.{Logger, LoggerFactory}
-import com.google.common.io.Files
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
+
+import org.kiji.express.flow.util.ResourceUtil.doAndClose
 import org.kiji.modelrepo.KijiModelRepository
 import org.kiji.modelrepo.ModelLifeCycle
 import org.kiji.modelrepo.ArtifactName
 import org.kiji.modelrepo.uploader.MavenArtifactName
-import org.kiji.express.flow.util.Resources.doAndClose
 
 object ModelRepoScannerState extends Enumeration {
   type State = Value

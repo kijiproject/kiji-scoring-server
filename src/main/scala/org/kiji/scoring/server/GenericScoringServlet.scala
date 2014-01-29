@@ -38,11 +38,9 @@ import org.kiji.express.flow.ColumnInputSpec
 import org.kiji.express.flow.EntityId
 import org.kiji.express.flow.FlowCell
 import org.kiji.express.flow.framework.KijiScheme
-import org.kiji.express.flow.util.GenericRowDataConverter
-import org.kiji.express.flow.util.Tuples
-import org.kiji.express.flow.util.Resources.doAndClose
-import org.kiji.express.flow.util.Resources.withKiji
-import org.kiji.express.flow.util.Resources.withKijiTableReader
+import org.kiji.express.flow.util.ResourceUtil.doAndClose
+import org.kiji.express.flow.util.ResourceUtil.withKiji
+import org.kiji.express.flow.util.ResourceUtil.withKijiTableReader
 import org.kiji.modeling.ExtractFn
 import org.kiji.modeling.Extractor
 import org.kiji.modeling.KeyValueStore
@@ -52,6 +50,7 @@ import org.kiji.modeling.config.KijiInputSpec
 import org.kiji.modeling.config.ModelDefinition
 import org.kiji.modeling.config.ModelEnvironment
 import org.kiji.modeling.framework.ModelConverters
+import org.kiji.modeling.framework.TupleUtil
 import org.kiji.modeling.impl.ModelJobUtils
 import org.kiji.modeling.impl.ModelJobUtils.PhaseType.SCORE
 import org.kiji.modelrepo.ArtifactName
@@ -97,7 +96,6 @@ class GenericScoringServlet extends HttpServlet {
   var mOutputColumn: KijiColumnName = null
   var mExtractor: Option[Extractor] = None
   var mScorer: Scorer = null
-  var mRowConverter: GenericRowDataConverter = null
   val mThreadLocalKVStore: ThreadLocalMapKVStore[String, String] =
       new ThreadLocalMapKVStore[String, String]
 
@@ -129,7 +127,6 @@ class GenericScoringServlet extends HttpServlet {
         mOutputColumn = new KijiColumnName(ModelJobUtils.getOutputColumn(mModelEnv))
         mExtractor = mModelDef.scoreExtractorClass.map { _.newInstance() }
         mScorer = mModelDef.scorerClass.get.newInstance()
-        mRowConverter = new GenericRowDataConverter(inputURI, new Configuration)
         mScorer.keyValueStores =
           Map(FRESHENER_PARAMETERS_KVSTORE -> KeyValueStore(mThreadLocalKVStore.open()))
       }
@@ -144,9 +141,9 @@ class GenericScoringServlet extends HttpServlet {
   /**
    * Helper function to compute a score given a row data.
    *
-   * @param input The KijiRowData to pass to the Score function.
+   * @param row The KijiRowData to pass to the Score function.
    */
-  private def score(input: KijiRowData): KijiScoringServerCell = {
+  private def score(row: KijiRowData): KijiScoringServerCell = {
     // TODO(EXP-283): Generalize this functionality inside kiji-modeling and utilize that instead.
     val ScoreFn(scoreFields, score) = mScorer.scoreFn
 
@@ -164,13 +161,10 @@ class GenericScoringServlet extends HttpServlet {
     }}
       .toMap
 
-    // Configure the row data input to decode its data generically
-    val row = mRowConverter(input)
-
     // Prepare input to the extract phase.
     def getSlices(inputFields: Seq[String]): Seq[Any] = inputFields
         .map { (field: String) =>
-          if (field == KijiScheme.entityIdField) {
+          if (field == KijiScheme.EntityIdField) {
             EntityId.fromJavaEntityId(row.getEntityId())
           } else {
             val columnName: KijiColumnName = fieldMapping(field.toString)
@@ -207,7 +201,7 @@ class GenericScoringServlet extends HttpServlet {
           if (extractFields._1.isAll) {
             fieldMapping.keys.toSeq
           } else {
-            Tuples.fieldsToSeq(extractFields._1)
+            TupleUtil.fieldsToSeq(extractFields._1)
           }
         }
         val extractOutputFields: Seq[String] = {
@@ -216,7 +210,7 @@ class GenericScoringServlet extends HttpServlet {
           if (extractFields._2.isResults) {
             extractInputFields
           } else {
-            Tuples.fieldsToSeq(extractFields._2)
+            TupleUtil.fieldsToSeq(extractFields._2)
           }
         }
 
@@ -226,7 +220,7 @@ class GenericScoringServlet extends HttpServlet {
           if (scoreFields.isAll) {
             extractOutputFields
           } else {
-            Tuples.fieldsToSeq(scoreFields)
+            TupleUtil.fieldsToSeq(scoreFields)
           }
         }
 
@@ -234,8 +228,8 @@ class GenericScoringServlet extends HttpServlet {
         val slices = getSlices(extractInputFields)
 
         // Get output from the extract phase.
-        val featureVector: Product = Tuples.fnResultToTuple(
-          extract(Tuples.tupleToFnArg(Tuples.seqToTuple(slices))))
+        val featureVector: Product = TupleUtil.fnResultToTuple(
+          extract(TupleUtil.tupleToFnArg(TupleUtil.seqToTuple(slices))))
         val featureMapping: Map[String, Any] = extractOutputFields
           .zip(featureVector.productIterator.toIterable)
           .toMap
@@ -247,12 +241,12 @@ class GenericScoringServlet extends HttpServlet {
       }
       // If there's no extractor, use default input and output fields
       case None => {
-        val scoreInputFields = Tuples.fieldsToSeq(scoreFields)
+        val scoreInputFields = TupleUtil.fieldsToSeq(scoreFields)
         val inputOutputFields = fieldMapping.keys.toSeq
         val slices = getSlices(inputOutputFields)
 
         // Get output from the extract phase.
-        val featureVector: Product = Tuples.seqToTuple(slices)
+        val featureVector: Product = TupleUtil.seqToTuple(slices)
         val featureMapping: Map[String, Any] = inputOutputFields
           .zip(featureVector.productIterator.toIterable)
           .toMap
@@ -270,8 +264,8 @@ class GenericScoringServlet extends HttpServlet {
         mOutputColumn.getFamily,
         mOutputColumn.getQualifier,
         HConstants.LATEST_TIMESTAMP,
-        score(Tuples.tupleToFnArg(Tuples.seqToTuple(scoreInput)))
-    );
+        score(TupleUtil.tupleToFnArg(TupleUtil.seqToTuple(scoreInput)))
+    )
   }
 
 
