@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
-  <!--
-    (c) Copyright 2012 WibiData, Inc.
+<!--
+    (c) Copyright 2013 WibiData, Inc.
 
     See the NOTICE file distributed with this work for additional
     information regarding copyright ownership.
@@ -16,10 +16,10 @@
     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
     See the License for the specific language governing permissions and
     limitations under the License.
-  -->
+-->
 <FindBugsFilter>
   <Match>
-    <!-- We only care about kiji-scoring code. -->
-    <Package name="~org[.]kiji[.]scoring[.].*" />
+    <!-- We only care about the schema shell code. -->
+    <Package name="~org[.]kiji[.]schema[.]shell[.].*" />
   </Match>
 </FindBugsFilter>

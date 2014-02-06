@@ -19,47 +19,68 @@
 
 package org.kiji.scoring.server
 
+import java.io.BufferedInputStream
 import java.io.File
+import java.io.PrintWriter
 import java.net.URL
-
+import java.util.jar.JarEntry
+import java.util.jar.JarOutputStream
 import scala.collection.JavaConverters.mapAsJavaMapConverter
 import scala.collection.JavaConverters.seqAsJavaListConverter
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.common.io.Files
+import org.junit.Assert
+import org.apache.http.client.methods.HttpGet
+import org.apache.http.impl.client.DefaultHttpClient
 
+import org.kiji.express.flow.util.ResourceUtil.doAndClose
 import org.kiji.modelrepo.tools.DeployModelRepoTool
 import org.kiji.schema.Kiji
 import org.kiji.schema.KijiURI
-import org.kiji.web.KijiScoringServerCell
 
-/**
- * Collection of random test utilities.
- */
 object TestUtils {
+  val artifactName = "org.kiji.test.sample_model"
 
-  val ARTIFACT_NAME = "org.kiji.test.sample_model"
+  val modelContainerTemplate =
+    """{
+      |  "model_name": "name",
+      |  "model_version": "1.0.0",
+      |  "score_function_class": "org.kiji.scoring.server.DummyScoreFunction",
+      |  "parameters": {},
+      |  "table_uri": "%s",
+      |  "column_name": "%s",
+      |  "record_version": "model_container-0.1.0"
+      |}
+    """.stripMargin
 
   /**
-   * Deploys the specified artifact file to the model repository located associated
+   * Deploys the specified artifact file to the model repository associated
    * with the specified kiji instance. <b>Note:</b> that the name for this lifecycle
-   * is fixed at "org.kiji.test.sample_lifecycle". The definition/environment files are located
-   * in src/test/resources.
+   * is fixed at "org.kiji.test.sample_lifecycle". The KijiModelContainer JSON template is available
+   * with the name modelContainerTemplate in this file; it is populated with tableURI build from the
+   * KijiURI of the given Kiji instance.
    *
-   * @param kiji is the Kiji instance associated with this model repository.
-   * @param version is the version of the lifecycle.
-   * @param artifactFile is the path to the artifact file to deploy.
+   * @param kiji instance in which the test will operate.
+   * @param artifactFile path to the model JAR to deploy.
+   * @param version of the model.
    */
   def deploySampleLifecycle(kiji: Kiji, artifactFile: String, version: String) {
+    val tempContainerFile = new File(Files.createTempDir(), "model_container.json")
+    val modelContainerJson = modelContainerTemplate.format(
+        KijiURI.newBuilder(kiji.getURI).withTableName("users").build(), "info:out")
+    doAndClose(new PrintWriter(tempContainerFile, "UTF-8")) {
+      pw => pw.print(modelContainerJson)
+    }
+
     val deployTool = new DeployModelRepoTool
     // Deploy some bogus artifact. We don't care that it's not executable code yet.
-    val qualifiedName = String.format("%s-%s",ARTIFACT_NAME,version)
+    val qualifiedName = "%s-%s".format(artifactName, version)
     val args = List(
       qualifiedName,
       artifactFile,
       "--kiji=" + kiji.getURI().toString(),
-      "--definition=src/test/resources/org/kiji/samplelifecycle/model_definition.json",
-      "--environment=src/test/resources/org/kiji/samplelifecycle/model_environment.json",
+      "--model-container=" + tempContainerFile.getAbsolutePath,
       "--production-ready=true",
       "--message=Uploading Artifact")
 
@@ -99,18 +120,59 @@ object TestUtils {
   }
 
   /**
-   * Returns the results of querying the scoring server as a List[Map[String,Any]].
+   * Returns the KijiScoringServerCell result from scoring a model.
    *
-   * @param httpPort is the port running the scoring server.
-   * @param endPoint is the endpoint + any parameters to request.
+   * @param httpPort running the scoring server.
+   * @param endPoint with any parameters to request.
    *
-   * @return the parsed JSON response.
+   * @return the parsed JSON response as a KijiScoringServerCell.
    */
   def scoringServerResponse(httpPort: Int, endPoint: String): KijiScoringServerCell = {
-    val formattedUrl = String.format("http://localhost:%s/%s",
-      httpPort: java.lang.Integer, endPoint)
+    val formattedUrl = "http://localhost:%s/models/%s".format(httpPort, endPoint)
     val endpointUrl = new URL(formattedUrl)
     val jsonMapper = new ObjectMapper
     jsonMapper.readValue(endpointUrl, classOf[KijiScoringServerCell])
+  }
+
+  /**
+   * Adds the given classFile to the target JAR output stream. The classFile is assumed to
+   * be a resource on the classpath.
+   * @param classFile is the class file name to add to the jar file.
+   * @param target is the outputstream representing the jar file where the class gets written.
+   */
+  def addToJar(classFile: String, target: JarOutputStream) {
+    val inStream = getClass.getClassLoader.getResourceAsStream(classFile)
+    val entry = new JarEntry(classFile)
+    target.putNextEntry(entry)
+    val in = new BufferedInputStream(inStream)
+
+    val buffer = new Array[Byte](1024)
+    var count = in.read(buffer)
+    while (count >= 0) {
+      target.write(buffer, 0, count)
+      count = in.read(buffer)
+    }
+    target.closeEntry()
+    in.close()
+  }
+
+  /**
+   * Send a request to scan the given ScoringServer. The server is assumed to be hosted by
+   * localhost.
+   *
+   * @param server to scan.
+   */
+  def scan(server: ScoringServer) {
+    val port = server.server.getConnectors()(0).getLocalPort
+    val client = new DefaultHttpClient()
+    val get = new HttpGet("http://localhost:%s/admin/scanner".format(port))
+    val response = client.execute(get)
+    try {
+      Assert.assertEquals(200, response.getStatusLine.getStatusCode)
+    } finally {
+      get.releaseConnection()
+    }
+    server.overlayedProvider.scan()
+    Thread.sleep(2000)
   }
 }

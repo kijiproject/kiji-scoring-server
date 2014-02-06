@@ -19,203 +19,144 @@
 
 package org.kiji.scoring.server
 
-import java.io.BufferedInputStream
 import java.io.File
 import java.io.FileNotFoundException
 import java.io.FileOutputStream
-import java.lang.System
-import java.util.jar.JarEntry
 import java.util.jar.JarOutputStream
 
-import org.apache.hadoop.hbase.HBaseConfiguration
-
+import com.google.common.io.Files
+import org.apache.commons.codec.binary.Base64
+import org.apache.commons.lang.SerializationUtils
 import org.junit.After
 import org.junit.Assert
 import org.junit.Before
 import org.junit.Test
 
-import org.scalatest.junit.JUnitSuite
-
 import org.kiji.modelrepo.KijiModelRepository
-import org.kiji.schema.Kiji
-import org.kiji.schema.KijiInstaller
-import org.kiji.schema.KijiURI
+import org.kiji.schema.KijiClientTest
+import org.kiji.schema.KijiDataRequest
 import org.kiji.schema.layout.KijiTableLayouts
 import org.kiji.schema.util.InstanceBuilder
 
-import com.google.common.io.Files
-import org.slf4j.LoggerFactory
+class TestScoringServer extends KijiClientTest {
 
-class TestScoringServer extends JUnitSuite {
-
-  // NOTE: This is necessary to properly construct the jar. If you change the
-  // DummyExtractorScorer.scala file, then please amend this list. Since Scala is weird
-  // with generating class files, you may have to inspect the target directory to find
-  // classes generated and then add them here. This is used to generate the target artifact
-  // that gets used to upload to the model repository.
-  val mExtracterScorerClasses = List(
-    "/org/kiji/lifecycle/DummyExtractorScorer.class",
-    "/org/kiji/lifecycle/DummyExtractorScorer$$anonfun$1.class",
-    "/org/kiji/lifecycle/DummyExtractorScorer$$anonfun$2.class",
-    "/org/kiji/lifecycle/DummyExtractorScorer$$anonfun$3.class",
-    "/org/kiji/lifecycle/DummyExtractorScorer$$anonfun$4.class")
-
-  var mFakeKiji: Kiji = null
   var mTempHome: File = null
-  var mModelRepo: KijiModelRepository = null
-
-  val EMAIL_ADDRESS = "name@company.com"
-  val FAKE_URI = KijiURI.newBuilder("kiji://.fake.scoreserver:2181/default").build()
-  val HBASE_CONF = HBaseConfiguration.create()
+  val emailAddress = "name@company.com"
+  val tableLayout = KijiTableLayouts.getLayout("org/kiji/scoring/server/sample/user_table.json")
 
   @Before
   def setup() {
-
-    KijiInstaller.get().install(FAKE_URI, HBASE_CONF)
-    mFakeKiji = Kiji.Factory.open(FAKE_URI, HBASE_CONF)
-
-    val tableLayout = KijiTableLayouts.getLayout("org/kiji/samplelifecycle/user_table.json")
-    mFakeKiji.createTable(tableLayout)
-    val table = mFakeKiji.openTable("users")
-    val writer = table.openTableWriter()
-    writer.put(table.getEntityId(12345: java.lang.Long), "info", "email", EMAIL_ADDRESS)
-    writer.close()
-    table.release()
+    new InstanceBuilder(getKiji)
+        .withTable(tableLayout)
+            .withRow(12345: java.lang.Long)
+                .withFamily("info")
+                    .withQualifier("email")
+                        .withValue(1, emailAddress)
+    .build
 
     val tempModelRepoDir = Files.createTempDir()
     tempModelRepoDir.deleteOnExit()
-    KijiModelRepository.install(mFakeKiji, tempModelRepoDir.toURI)
+    KijiModelRepository.install(getKiji, tempModelRepoDir.toURI)
 
-    mTempHome = TestUtils.setupServerEnvironment(mFakeKiji.getURI)
+    mTempHome = TestUtils.setupServerEnvironment(getKiji.getURI)
   }
 
   @After
   def tearDown() {
-    mFakeKiji.deleteTable("users")
-    mFakeKiji.release()
     mTempHome.delete()
-    KijiInstaller.get().uninstall(FAKE_URI, HBASE_CONF)
   }
 
   @Test
   def testShouldDeployAndRunSingleLifecycle() {
     val jarFile = File.createTempFile("temp_artifact", ".jar")
     val jarOS = new JarOutputStream(new FileOutputStream(jarFile))
-    mExtracterScorerClasses.foreach(addToJar(_, jarOS))
+    TestUtils.addToJar("org/kiji/scoring/server/DummyScoreFunction.class", jarOS)
     jarOS.close()
 
-    TestUtils.deploySampleLifecycle(mFakeKiji, jarFile.getAbsolutePath, "0.0.1")
+    TestUtils.deploySampleLifecycle(getKiji, jarFile.getAbsolutePath, "0.0.1")
 
-    val scoringServer = ScoringServer(mTempHome.getCanonicalFile)
-    scoringServer.start()
-
-    val connector = scoringServer.server.getConnectors()(0)
-    // TODO: Eventually remove this sleep but since Jetty right now is set to scan a directory
-    // for changes every second, this has to be here until we can control the deployment
-    // synchronously (i.e. upon a change in the model repo, complete the deployment to and through
-    // registering with Jetty this new application).
-    Thread.sleep(5000)
-
-    val response = TestUtils.scoringServerResponse(connector.getLocalPort,
-      "org/kiji/test/sample_model/0.0.1/?eid=[12345]")
-    scoringServer.stop()
-    assert(Integer.parseInt(response.getValue.toString) == EMAIL_ADDRESS.length())
-    scoringServer.releaseResources()
+    val server = ScoringServer(mTempHome, ServerConfiguration(8080, getKiji.getURI.toString, 0, 2))
+    server.start()
+    try {
+      TestUtils.scan(server)
+      val connector = server.server.getConnectors()(0)
+      val response = TestUtils.scoringServerResponse(connector.getLocalPort,
+        "org/kiji/test/sample_model/0.0.1/?eid=[12345]&request=" +
+            Base64.encodeBase64String(SerializationUtils.serialize(KijiDataRequest.empty())))
+      assert(Integer.parseInt(response.getValue) == emailAddress.length())
+    } finally {
+      server.stop()
+    }
   }
 
   @Test
   def testShouldHotUndeployModelLifecycle() {
     val jarFile = File.createTempFile("temp_artifact", ".jar")
     val jarOS = new JarOutputStream(new FileOutputStream(jarFile))
-    mExtracterScorerClasses.foreach(addToJar(_, jarOS))
+    TestUtils.addToJar("org/kiji/scoring/server/DummyScoreFunction.class", jarOS)
     jarOS.close()
 
-    TestUtils.deploySampleLifecycle(mFakeKiji, jarFile.getAbsolutePath, "0.0.1")
+    TestUtils.deploySampleLifecycle(getKiji, jarFile.getAbsolutePath, "0.0.1")
 
-    val scoringServer = ScoringServer(mTempHome.getCanonicalFile)
-    scoringServer.start()
-
-    val connector = scoringServer.server.getConnectors()(0)
-    // TODO: Eventually remove this sleep but since Jetty right now is set to scan a directory
-    // for changes every second, this has to be here until we can control the deployment
-    // synchronously (i.e. upon a change in the model repo, complete the deployment to and through
-    // registering with Jetty this new application).
-    Thread.sleep(5000)
-
-    val response = TestUtils.scoringServerResponse(connector.getLocalPort,
-      "org/kiji/test/sample_model/0.0.1/?eid=[12345]")
-
-    assert(Integer.parseInt(response.getValue.toString) == EMAIL_ADDRESS.length())
-
-    val modelRepoTable = mFakeKiji.openTable("model_repo")
-    val writer = modelRepoTable.openTableWriter()
-    writer.put(modelRepoTable.getEntityId(TestUtils.ARTIFACT_NAME,
-        "0.0.1"), "model", "production_ready", false)
-    writer.close()
-    modelRepoTable.release()
-
-    // Same comment on the sleep as above.
-    Thread.sleep(5000)
-
+    val server = ScoringServer(mTempHome, ServerConfiguration(8080, getKiji.getURI.toString, 0, 2))
+    server.start()
     try {
-      TestUtils.scoringServerResponse(connector.getLocalPort,
-        "org/kiji/test/sample_model/0.0.1/?eid=[12345]")
-      Assert.fail("Scoring server should have thrown a 404 but didn't")
-    } catch {
-      case ex: FileNotFoundException => {
-        assert(true)
+      val connector = server.server.getConnectors()(0)
+      TestUtils.scan(server)
+      val response = TestUtils.scoringServerResponse(connector.getLocalPort,
+        "org/kiji/test/sample_model/0.0.1/?eid=[12345]&request=" +
+            Base64.encodeBase64String(SerializationUtils.serialize(KijiDataRequest.empty())))
+
+      assert(Integer.parseInt(response.getValue.toString) == emailAddress.length())
+
+      val modelRepoTable = getKiji.openTable("model_repo")
+      try {
+        val writer = modelRepoTable.openTableWriter()
+        try {
+          writer.put(modelRepoTable.getEntityId(TestUtils.artifactName,
+            "0.0.1"), "model", "production_ready", false)
+        } finally {
+          writer.close()
+        }
+        modelRepoTable.release()
+        TestUtils.scan(server)
+        try {
+          TestUtils.scoringServerResponse(connector.getLocalPort,
+            "org/kiji/test/sample_model/0.0.1/?eid=[12345]&request=" +
+                Base64.encodeBase64String(SerializationUtils.serialize(KijiDataRequest.empty())))
+          Assert.fail("Scoring server should have thrown a 404 but didn't")
+        } catch {
+          case ex: FileNotFoundException => ()
+        }
       }
+    } finally {
+      server.stop()
     }
-    scoringServer.stop()
-    scoringServer.releaseResources()
   }
 
   @Test
   def testCanPassFreshParameters() {
     val jarFile = File.createTempFile("temp_artifact", ".jar")
     val jarOS = new JarOutputStream(new FileOutputStream(jarFile))
-    mExtracterScorerClasses.foreach(addToJar(_, jarOS))
+    TestUtils.addToJar("org/kiji/scoring/server/DummyScoreFunction.class", jarOS)
     jarOS.close()
 
-    TestUtils.deploySampleLifecycle(mFakeKiji, jarFile.getAbsolutePath, "0.0.1")
+    TestUtils.deploySampleLifecycle(getKiji, jarFile.getAbsolutePath, "0.0.1")
 
-    val scoringServer = ScoringServer(mTempHome.getCanonicalFile)
-    scoringServer.start()
-
-    val connector = scoringServer.server.getConnectors()(0)
-    // TODO: Eventually remove this sleep but since Jetty right now is set to scan a directory
-    // for changes every second, this has to be here until we can control the deployment
-    // synchronously (i.e. upon a change in the model repo, complete the deployment to and through
-    // registering with Jetty this new application).
-    Thread.sleep(5000)
-
-    // "%3D%3D%3D is a url encoding of '==='.
-    val response = TestUtils.scoringServerResponse(connector.getLocalPort,
-      "org/kiji/test/sample_model/0.0.1/?eid=[12345]&fresh.jennyanydots=%3D%3D%3D")
-    scoringServer.stop()
-    assert(Integer.parseInt(response.getValue.toString) == "===".length())
-    scoringServer.releaseResources()
-  }
-
-  /**
-   * Adds the given classFile to the target JAR output stream. The classFile is assumed to
-   * be a resource on the classpath.
-   * @param classFile is the class file name to add to the jar file.
-   * @param target is the outputstream representing the jar file where the class gets written.
-   */
-  def addToJar(classFile: String, target: JarOutputStream) {
-    val inStream = classOf[System].getResourceAsStream(classFile)
-    val entry = new JarEntry(classFile.substring(1))
-    target.putNextEntry(entry)
-    val in = new BufferedInputStream(inStream)
-
-    val buffer = new Array[Byte](1024)
-    var count = in.read(buffer)
-    while (count >= 0) {
-      target.write(buffer, 0, count)
-      count = in.read(buffer)
+    val server = ScoringServer(mTempHome, ServerConfiguration(8080, getKiji.getURI.toString, 0, 2))
+    server.start()
+    try {
+      val connector = server.server.getConnectors()(0)
+      TestUtils.scan(server)
+      // "%3D%3D%3D is a url encoding of '==='.
+      val response = TestUtils.scoringServerResponse(connector.getLocalPort,
+        "org/kiji/test/sample_model/0.0.1/?eid=[12345]&fresh.jennyanydots=%3D%3D%3D&request=" +
+            Base64.encodeBase64String(SerializationUtils.serialize(KijiDataRequest.empty())))
+      assert(Integer.parseInt(response.getValue.toString) == "===".length())
+    } finally {
+      server.stop()
     }
-    target.closeEntry()
-    in.close()
   }
+
+
 }

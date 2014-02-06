@@ -1,6 +1,12 @@
 
                               Kiji Scoring Server Release Notes
 
+Version 0.11.0
+  * SCORSRVR-5. ScoringServer interaction points have changed to include several commands under
+      {BASE_URL}/admin including /admin/list /admin/get /admin/ping /admin/scan more information can
+      be found in the JavaDoc for org.kiji.scoring.server.servlets.
+      Model endpoints in the ScoringServer have moved to {BASE_URL}/models/endpoint.
+
 Version 0.9.0
   * Initial re-commit of the scoring server in a separate project. Please see release notes
     under the kiji-model-repository for more information about release notes prior to this version.

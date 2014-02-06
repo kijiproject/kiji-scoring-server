@@ -35,7 +35,10 @@
         name: "email",
         description: "The person's email",
         column_schema: {type: "INLINE", value: '"string"'}
-      } ]
+      }, {
+        name: "out",
+        column_schema: {type: "INLINE", value: '"string"'}
+      }]
     }, {
       name: "searches",
       description: "The recent search queries the user has made",

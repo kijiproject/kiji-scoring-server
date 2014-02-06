@@ -17,7 +17,5 @@
  * limitations under the License.
  */
 
-/**
- * Contains kvstores required for the functionality of the scoring server.
- */
-package org.kiji.scoring.server.kvstore.lib;
+/** Contains Java classes used to serialize and deserialize ScoringServer responses via Jackson. */
+package org.kiji.scoring.server;

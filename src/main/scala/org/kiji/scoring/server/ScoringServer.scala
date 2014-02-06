@@ -20,17 +20,22 @@
 package org.kiji.scoring.server
 
 import java.io.File
+import java.io.PrintWriter
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import org.eclipse.jetty.deploy.DeploymentManager
+import org.eclipse.jetty.deploy.providers.WebAppProvider
 import org.eclipse.jetty.overlays.OverlayedAppProvider
 import org.eclipse.jetty.server.AbstractConnector
 import org.eclipse.jetty.server.Server
 import org.eclipse.jetty.server.handler.ContextHandlerCollection
 import org.eclipse.jetty.server.handler.DefaultHandler
 import org.eclipse.jetty.server.handler.HandlerCollection
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.scala.DefaultScalaModule
 
+import org.kiji.annotations.ApiAudience
+import org.kiji.annotations.ApiStability
+import org.kiji.express.flow.util.ResourceUtil.doAndClose
 import org.kiji.modelrepo.KijiModelRepository
 import org.kiji.schema.Kiji
 import org.kiji.schema.KijiURI
@@ -38,13 +43,16 @@ import org.kiji.schema.KijiURI
 /**
  * Configuration parameters for a Kiji ScoringServer.
  *
- * @param port device port on which the configured ScoringServer will listen.
- * @param repo_uri is the KijiURI string of the model repository from which the configured server
- *     will read.
- * @param repo_scan_interval is the period in seconds between scans of the model repository table.
- * @param num_acceptors is the number of acceptor threads to be run by the configured server.
+ * @param port on which the configured ScoringServer will listen.
+ * @param repo_uri string of the Kiji instance in which the model repository this server will read
+ *     from resides.
+ * @param repo_scan_interval in seconds between scans of the model repository table. 0 indicates no
+ *     automatic scanning.
+ * @param num_acceptors threads to be run by the configured server.
  */
-case class ServerConfiguration(
+@ApiAudience.Public
+@ApiStability.Experimental
+final case class ServerConfiguration(
   port: Int,
   repo_uri: String,
   repo_scan_interval: Int,
@@ -52,50 +60,73 @@ case class ServerConfiguration(
 )
 
 /**
- * Scoring Server class. Provides a few wrappers around the Jetty server underneath.
+ * Wraps a Jetty server to provide remote scoring capabilities.
  *
- * @param baseDir is the base directory in which the expected models and conf directories are
- *     expected to exist.
- * @param serverConfig is the scoring server configuration containing information such as the URI of
- *     the Kiji instance whose model repo table will back this ScoringServer.
+ * @param baseDir in which the models and conf directories exist.
+ * @param serverConfig containing information such as the URI of the Kiji instance whose model repo
+ *     table will back this ScoringServer.
  */
-class ScoringServer(baseDir: File, serverConfig: ServerConfiguration) {
+@ApiAudience.Public
+@ApiStability.Experimental
+final class ScoringServer private(baseDir: File, serverConfig: ServerConfiguration) {
 
   val modelRepoURI: KijiURI = KijiURI.newBuilder(serverConfig.repo_uri).build()
-  val repoInstance: Kiji = Kiji.Factory.open(modelRepoURI)
-  val kijiModelRepo = KijiModelRepository.open(repoInstance)
 
-  // Start the model lifecycle scanner thread that will scan the model repository
-  // for changes.
-  val lifeCycleScanner: ModelRepoScanner = new ModelRepoScanner(
-    kijiModelRepo,
-    serverConfig.repo_scan_interval,
-    baseDir)
-  val lifeCycleScannerThread: Thread = new Thread(lifeCycleScanner)
-  lifeCycleScannerThread.start()
+  // Build the web.xml that will define the server deployment.
+  val servletConfigs: Set[String] = Set(
+      Templates.generateServletConfigForWebXml(
+          name = "ModelRepoScannerServlet",
+          servletClass = "org.kiji.scoring.server.servlets.ModelRepoScannerServlet",
+          urlPattern = "/scanner",
+          initParams = Map(
+              "base-dir" -> baseDir.getAbsolutePath,
+              "scan-interval-seconds" -> serverConfig.repo_scan_interval.toString,
+              "repo-uri" -> serverConfig.repo_uri
+          )
+      ), Templates.generateServletConfigForWebXml(
+          name = "ListModelsServlet",
+          servletClass = "org.kiji.scoring.server.servlets.ListModelsServlet",
+          urlPattern = "/list",
+          initParams = Map()
+      ), Templates.generateServletConfigForWebXml(
+          name = "GetModelServlet",
+          servletClass = "org.kiji.scoring.server.servlets.GetModelServlet",
+          urlPattern = "/get",
+          initParams = Map()
+      ), Templates.generateServletConfigForWebXml(
+          name = "PingServlet",
+          servletClass = "org.kiji.scoring.server.servlets.PingServlet",
+          urlPattern = "/ping",
+          initParams = Map()
+      )
+  )
+  val webXml: String = Templates.generateWebXml(servletConfigs)
+  val webXmlDir: File = new File(baseDir, "server/webapps/admin/WEB-INF")
+  webXmlDir.mkdirs()
+  val webXmlFile: File = new File(webXmlDir, "web.xml")
+  webXmlFile.createNewFile()
+  doAndClose(new PrintWriter(webXmlFile, "UTF-8")) {
+    pw => pw.print(webXml)
+  }
 
   val server: Server = new Server(serverConfig.port)
-
   // Increase the number of acceptor threads.
   val connector: AbstractConnector = server.getConnectors()(0).asInstanceOf[AbstractConnector]
   connector.setAcceptors(serverConfig.num_acceptors)
-
   val handlers: HandlerCollection = new HandlerCollection()
-
   val contextHandler: ContextHandlerCollection = new ContextHandlerCollection()
   val deploymentManager: DeploymentManager = new DeploymentManager()
   val overlayedProvider: OverlayedAppProvider = new OverlayedAppProvider
-
+  val webappDeployer: WebAppProvider = new WebAppProvider()
+  webappDeployer.setMonitoredDirName(new File(baseDir, "server/webapps").getAbsolutePath)
   overlayedProvider.setScanDir(new File(baseDir, ScoringServer.MODELS_FOLDER))
   // For now scan this directory once per second.
   overlayedProvider.setScanInterval(1)
-
   deploymentManager.setContexts(contextHandler)
   deploymentManager.addAppProvider(overlayedProvider)
-
+  deploymentManager.addAppProvider(webappDeployer)
   handlers.addHandler(contextHandler)
   handlers.addHandler(new DefaultHandler())
-
   server.setHandler(handlers)
   server.addBean(deploymentManager)
 
@@ -108,18 +139,14 @@ class ScoringServer(baseDir: File, serverConfig: ServerConfiguration) {
   def stop() {
     server.stop()
   }
-
-  /** Release resources retained by the ScoringServer. */
-  def releaseResources() {
-    lifeCycleScanner.shutdown()
-    kijiModelRepo.close()
-  }
 }
 
 /**
  * Main entry point for the scoring server. This pulls in and combines various Jetty components
  * to boot a new web server listening for scoring requests.
  */
+@ApiAudience.Public
+@ApiStability.Experimental
 object ScoringServer {
 
   val CONF_FILE: String = "configuration.json"
@@ -138,24 +165,29 @@ object ScoringServer {
     // TODO what does this null do? should it be args(0)?
     val scoringServer = ScoringServer(null)
 
-    // Gracefully shutdown the deployment thread to let it finish anything that it may be doing
-    sys.ShutdownHookThread {
-      scoringServer.releaseResources()
-    }
-
     scoringServer.start()
     scoringServer.server.join()
   }
 
   /**
-   * Constructs a Jetty Server instance configured using the conf/configuration.json.
+   * Constructs a ScoringServer instance configured using the conf/configuration.json found in the
+   * specified base directory.
    *
-   * @param baseDir is the base directory in which models and configuration directories are expected
-   *      to exist.
-   * @return a constructed Jetty server.
+   * @param baseDir in which models and configuration directories are expected to exist.
+   * @return a new ScoringServer.
    */
   def apply(baseDir: File): ScoringServer = {
     new ScoringServer(baseDir, getConfig(new File(baseDir, "%s/%s".format(CONF_FOLDER, CONF_FILE))))
+  }
+
+  /**
+   * Constructs a ScoringServer instance configured with the given ServerConfiguration.
+   *
+   * @param baseDir in which the models directory is expected to exist.
+   * @return a new ScoringServer.
+   */
+  def apply(baseDir: File, conf: ServerConfiguration): ScoringServer = {
+    new ScoringServer(baseDir, conf)
   }
 
   /**
