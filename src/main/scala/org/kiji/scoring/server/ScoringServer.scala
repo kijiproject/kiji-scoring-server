@@ -24,6 +24,7 @@ import java.io.PrintWriter
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
+import org.apache.hadoop.hbase.util.Bytes
 import org.eclipse.jetty.deploy.DeploymentManager
 import org.eclipse.jetty.deploy.providers.WebAppProvider
 import org.eclipse.jetty.overlays.OverlayedAppProvider
@@ -32,13 +33,16 @@ import org.eclipse.jetty.server.Server
 import org.eclipse.jetty.server.handler.ContextHandlerCollection
 import org.eclipse.jetty.server.handler.DefaultHandler
 import org.eclipse.jetty.server.handler.HandlerCollection
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 
 import org.kiji.annotations.ApiAudience
 import org.kiji.annotations.ApiStability
 import org.kiji.express.flow.util.ResourceUtil.doAndClose
-import org.kiji.modelrepo.KijiModelRepository
-import org.kiji.schema.Kiji
+import org.kiji.express.flow.util.ResourceUtil.withKiji
 import org.kiji.schema.KijiURI
+import org.apache.hadoop.hbase.HBaseConfiguration
+import org.kiji.scoring.lib.server.ScoringServerScoreFunction
 
 /**
  * Configuration parameters for a Kiji ScoringServer.
@@ -69,8 +73,22 @@ final case class ServerConfiguration(
 @ApiAudience.Public
 @ApiStability.Experimental
 final class ScoringServer private(baseDir: File, serverConfig: ServerConfiguration) {
+  import ScoringServer._
 
   val modelRepoURI: KijiURI = KijiURI.newBuilder(serverConfig.repo_uri).build()
+  withKiji(modelRepoURI, HBaseConfiguration.create()) { kiji =>
+    val baseURL = Bytes.toString(kiji.getSystemTable.getValue(
+      ScoringServerScoreFunction.SCORING_SERVER_BASE_URL_SYSTEM_KEY))
+    Option(baseURL) match {
+      case Some(url) => LOG.debug("ScoringServer started with load balancer base URL: {}", baseURL)
+      case None => LOG.debug(
+        "ScoringServer started with no load balancer base URL. Models attached as Fresheners will "
+        + "not be able to use this ScoringServer. To use this ScoringServer with KijiScoring's "
+        + "freshening library, be sure to set {} in your Kiji system table to the base URL of your."
+        + "load balancer.",
+        ScoringServerScoreFunction.SCORING_SERVER_BASE_URL_SYSTEM_KEY)
+    }
+  }
 
   // Build the web.xml that will define the server deployment.
   val servletConfigs: Set[String] = Set(
@@ -148,6 +166,7 @@ final class ScoringServer private(baseDir: File, serverConfig: ServerConfigurati
 @ApiAudience.Public
 @ApiStability.Experimental
 object ScoringServer {
+  val LOG: Logger = LoggerFactory.getLogger(classOf[ScoringServer])
 
   val CONF_FILE: String = "configuration.json"
   val MODELS_FOLDER: String = "models"
