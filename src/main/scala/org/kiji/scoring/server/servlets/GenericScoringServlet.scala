@@ -92,8 +92,9 @@ class GenericScoringServlet[T] extends HttpServlet {
     readerPool = pool
 
     val sfClassName = getServletConfig.getInitParameter(SCORE_FUNCTION_CLASS_KEY)
-    val sfClass = Class.forName(sfClassName).asSubclass(classOf[ScoreFunction[T]])
-    scoreFunction = ReflectionUtils.newInstance(sfClass, null)
+    val loader = new java.lang.Thread().getContextClassLoader
+    scoreFunction = loader.loadClass(sfClassName).asInstanceOf[Class[ScoreFunction[T]]].newInstance
+
     attachedColumn = new KijiColumnName(getServletConfig.getInitParameter(ATTACHED_COLUMN_KEY))
     recordParameters = GSON.fromJson(
         getServletConfig.getInitParameter(RECORD_PARAMETERS_KEY),

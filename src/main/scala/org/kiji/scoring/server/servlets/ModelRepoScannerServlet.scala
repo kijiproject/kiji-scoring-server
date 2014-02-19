@@ -345,14 +345,17 @@ class ModelRepoScannerServlet extends HttpServlet with Runnable {
         createTemplateXml(new File(tempTemplateDir, "template.xml"))
 
         // Move the temporarily downloaded artifact to its final location.
-        artifactFile.renameTo(new File(webappsFolder, finalArtifactName))
+        FileUtils.moveFile(artifactFile, new File(webappsFolder, finalArtifactName))
 
         // As part of the state necessary to reconstruct the scoring server on cold start, write
         // out the location of the model (which is used to determine if a war file needs to
         // actually be deployed when a model is deployed) to a text file.
         writeLocationInformation(finalArtifactName, model)
 
-        tempTemplateDir.getParentFile.renameTo(new File(templatesFolder, templateDirName))
+        FileUtils.moveDirectory(
+          tempTemplateDir.getParentFile,
+          new File(templatesFolder, templateDirName)
+        )
 
         // Create a new instance.
         createNewInstance(model, fullyQualifiedName, templateParamValues)
@@ -411,7 +414,7 @@ class ModelRepoScannerServlet extends HttpServlet with Runnable {
 
     val finalInstanceDir: File = new File(instancesFolder, instanceDirName)
 
-    tempInstanceDir.getParentFile.renameTo(finalInstanceDir)
+    FileUtils.moveDirectory(tempInstanceDir.getParentFile, finalInstanceDir)
 
     artifactToInstanceDir.put(artifactName, finalInstanceDir)
   }
@@ -437,10 +440,6 @@ object ModelRepoScannerServlet {
   // Constants that will get used when generating the various files to deploy a model.
   val CONTEXT_PATH: String = "context-path"
   val MODEL_NAME: String = "model-name"
-//  val MODEL_GROUP: String = "model-group"
-//  val MODEL_ARTIFACT: String = "model-artifact"
-//  val MODEL_VERSION: String = "model-version"
-//  val MODEL_REPO_URI: String = "model-repo-uri"
 
   /** All possible states of the ModelRepoScannerServlet. */
   sealed trait ModelRepoScannerState

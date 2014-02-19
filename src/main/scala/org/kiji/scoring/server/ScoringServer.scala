@@ -181,8 +181,14 @@ object ScoringServer {
       sys.error("Missing files: %s".format(missingFiles.mkString(", ")))
     }
 
-    // TODO what does this null do? should it be args(0)?
-    val scoringServer = ScoringServer(null)
+
+    val scoringServer = if (args.isEmpty) {
+      ScoringServer(new File("."))
+    } else if (args.size == 1) {
+      ScoringServer(new File(args(0)))
+    } else {
+      sys.error("Scoring server main method must have 0 or 1 argument. Found %s".format(args))
+    }
 
     scoringServer.start()
     scoringServer.server.join()
