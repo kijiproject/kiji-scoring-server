@@ -114,8 +114,10 @@ class ModelRepoScannerServlet extends HttpServlet with Runnable {
     // Validate webapps
     val (_, invalidWarFiles) = webappsFolder.listFiles.partition {
       file: File => file.isFile &&
-          file.getName.endsWith(".war") &&
-          new File(webappsFolder, file.getName + ".loc").exists
+          ((file.getName.endsWith(".war") &&
+          new File(webappsFolder, file.getName + ".loc").exists) ||
+          (file.getName.endsWith(".loc") &&
+          new File(webappsFolder, file.getName.dropRight(4)).exists()))
     }
     invalidWarFiles.foreach { delete }
 
