@@ -20,7 +20,13 @@
 # Launches the kiji-scoring-server
 
 cd $(dirname $0)/../
-BASEDIR=$PWD
+
+if [ $# -eq 0]
+  then
+    BASEDIR=$PWD
+  else
+    BASEDIR=$1
+fi
 
 # attempt to find java (stolen from bigtop)
 if [ -z "$JAVA_HOME" ]; then
@@ -62,7 +68,7 @@ scoring_server_cp="${kiji_jar}:${BASEDIR}/lib/*:${KIJI_CLASSPATH}"
 # create logs directory
 mkdir -p ${BASEDIR}/logs
 
-${JAVA_HOME}/bin/java -cp ${scoring_server_cp} org.kiji.scoring.server.ScoringServer \
+${JAVA_HOME}/bin/java -cp ${scoring_server_cp} org.kiji.scoring.server.ScoringServer ${BASEDIR} \
  > ${BASEDIR}/logs/console.out 2>&1 &
 
 scoring_server_pid=$!
