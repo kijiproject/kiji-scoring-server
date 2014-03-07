@@ -64,7 +64,7 @@ class TestModelRepoScannerServlet extends KijiClientTest {
     TestUtils.deploySampleLifecycle(getKiji, bogusArtifact, "0.0.1")
 
     val server = ScoringServer(
-        tempServerDir, ServerConfiguration(8080, getKiji.getURI.toString, 0, 2))
+        tempServerDir, ServerConfiguration(0, getKiji.getURI.toString, 0, 2))
     server.start()
     try {
       TestUtils.scan(server)
@@ -94,7 +94,7 @@ class TestModelRepoScannerServlet extends KijiClientTest {
     TestUtils.deploySampleLifecycle(getKiji, bogusArtifact, "0.0.1")
 
     val server = ScoringServer(
-        tempServerDir, ServerConfiguration(8080, getKiji.getURI.toString, 0, 2))
+        tempServerDir, ServerConfiguration(0, getKiji.getURI.toString, 0, 2))
     server.start()
     try {
       TestUtils.scan(server)
@@ -140,7 +140,7 @@ class TestModelRepoScannerServlet extends KijiClientTest {
     }
 
     val server = ScoringServer(
-        tempServerDir, ServerConfiguration(8080, getKiji.getURI.toString, 0, 2))
+        tempServerDir, ServerConfiguration(0, getKiji.getURI.toString, 0, 2))
     server.start()
     try {
       TestUtils.scan(server)
@@ -177,7 +177,7 @@ class TestModelRepoScannerServlet extends KijiClientTest {
             "org/kiji/test/sample_model/0.0.1/sample_model-0.0.1.war")
 
         val server = ScoringServer(
-          tempServerDir, ServerConfiguration(8080, getKiji.getURI.toString, 0, 2))
+          tempServerDir, ServerConfiguration(0, getKiji.getURI.toString, 0, 2))
         server.start()
         try {
           TestUtils.scan(server)
@@ -215,7 +215,7 @@ class TestModelRepoScannerServlet extends KijiClientTest {
     testShouldDeployASingleLifecycle()
 
     val server = ScoringServer(
-        tempServerDir, ServerConfiguration(8080, getKiji.getURI.toString, 0, 2))
+        tempServerDir, ServerConfiguration(0, getKiji.getURI.toString, 0, 2))
     server.start()
     try {
       TestUtils.scan(server)
@@ -259,7 +259,7 @@ class TestModelRepoScannerServlet extends KijiClientTest {
   @Test
   def testShouldRemoveInvalidArtifacts() {
     val server = ScoringServer(
-        tempServerDir, ServerConfiguration(8080, getKiji.getURI.toString, 0, 2))
+        tempServerDir, ServerConfiguration(0, getKiji.getURI.toString, 0, 2))
     server.start()
     try {
       TestUtils.scan(server)
@@ -287,7 +287,7 @@ class TestModelRepoScannerServlet extends KijiClientTest {
 
       // Starting a second server will clean the directories of invalid models.
       val server2 = ScoringServer(
-        tempServerDir, ServerConfiguration(8081, getKiji.getURI.toString, 0, 2))
+        tempServerDir, ServerConfiguration(0, getKiji.getURI.toString, 0, 2))
       server2.start()
       server2.stop()
 

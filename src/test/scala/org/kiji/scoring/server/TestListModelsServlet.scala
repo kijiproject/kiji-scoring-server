@@ -64,7 +64,7 @@ class TestListModelsServlet extends KijiClientTest {
 
     TestUtils.deploySampleLifecycle(getKiji, jarFile.getAbsolutePath, "0.0.1")
 
-    val server = ScoringServer(tempDir, ServerConfiguration(8080, getKiji.getURI.toString, 0, 2))
+    val server = ScoringServer(tempDir, ServerConfiguration(0, getKiji.getURI.toString, 0, 2))
     server.start()
     try {
       val connector = server.server.getConnectors()(0)

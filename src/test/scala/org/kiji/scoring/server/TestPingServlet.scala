@@ -57,7 +57,7 @@ class TestPingServlet extends KijiClientTest {
 
   @Test
   def testPingServlet() {
-    val server = ScoringServer(tempHome, ServerConfiguration(8080, getKiji.getURI.toString, 0, 2))
+    val server = ScoringServer(tempHome, ServerConfiguration(0, getKiji.getURI.toString, 0, 2))
     server.start()
     try {
       val connector = server.server.getConnectors()(0)

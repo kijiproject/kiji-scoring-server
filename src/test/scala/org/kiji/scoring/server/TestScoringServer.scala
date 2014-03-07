@@ -75,7 +75,7 @@ class TestScoringServer extends KijiClientTest {
 
     TestUtils.deploySampleLifecycle(getKiji, jarFile.getAbsolutePath, "0.0.1")
 
-    val server = ScoringServer(mTempHome, ServerConfiguration(8080, getKiji.getURI.toString, 0, 2))
+    val server = ScoringServer(mTempHome, ServerConfiguration(0, getKiji.getURI.toString, 0, 2))
     server.start()
     try {
       TestUtils.scan(server)
@@ -98,7 +98,7 @@ class TestScoringServer extends KijiClientTest {
 
     TestUtils.deploySampleLifecycle(getKiji, jarFile.getAbsolutePath, "0.0.1")
 
-    val server = ScoringServer(mTempHome, ServerConfiguration(8080, getKiji.getURI.toString, 0, 2))
+    val server = ScoringServer(mTempHome, ServerConfiguration(0, getKiji.getURI.toString, 0, 2))
     server.start()
     try {
       val connector = server.server.getConnectors()(0)
@@ -143,7 +143,7 @@ class TestScoringServer extends KijiClientTest {
 
     TestUtils.deploySampleLifecycle(getKiji, jarFile.getAbsolutePath, "0.0.1")
 
-    val server = ScoringServer(mTempHome, ServerConfiguration(8080, getKiji.getURI.toString, 0, 2))
+    val server = ScoringServer(mTempHome, ServerConfiguration(0, getKiji.getURI.toString, 0, 2))
     server.start()
     try {
       val connector = server.server.getConnectors()(0)
