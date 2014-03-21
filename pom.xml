@@ -61,6 +61,18 @@
       <version>${jackson.version}</version>
     </dependency>
 
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>${jackson.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.fasterxml.jackson.module</groupId>
+      <artifactId>jackson-module-scala_2.10</artifactId>
+      <version>${jackson.version}</version>
+    </dependency>
+
     <!-- Jetty Dependencies -->
     <dependency>
       <groupId>org.eclipse.jetty</groupId>
@@ -165,6 +177,14 @@
           <artifactId>jsp-api</artifactId>
           <groupId>javax.servlet.jsp</groupId>
         </exclusion>
+        <exclusion>
+          <artifactId>tomcat</artifactId>
+          <groupId>jasper-runtime</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>tomcat</artifactId>
+          <groupId>jasper-compiler</groupId>
+        </exclusion>
       </exclusions>
       <scope>compile</scope>
     </dependency>
@@ -201,6 +221,14 @@
         <exclusion>
           <artifactId>jruby-complete</artifactId>
           <groupId>org.jruby</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>tomcat</artifactId>
+          <groupId>jasper-runtime</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>tomcat</artifactId>
+          <groupId>jasper-compiler</groupId>
         </exclusion>
       </exclusions>
       <scope>compile</scope>
@@ -313,22 +341,9 @@
         </dependencies>
       </plugin>
 
-      <!-- Tells Maven to use the Scala compiler first, from http://scala-tools.org/mvnsites/maven-scala-plugin/usage_java.html -->
       <plugin>
-        <groupId>org.scala-tools</groupId>
-        <artifactId>maven-scala-plugin</artifactId>
-        <configuration>
-          <includes>
-            <include>**/*.scala</include>
-            <include>**/*.java</include>
-          </includes>
-          <displayCmd>true</displayCmd>
-          <args>
-            <arg>-deprecation</arg>
-            <arg>-unchecked</arg>
-            <arg>-explaintypes</arg>
-          </args>
-        </configuration>
+        <groupId>net.alchim31.maven</groupId>
+        <artifactId>scala-maven-plugin</artifactId>
       </plugin>
 
       <plugin>
