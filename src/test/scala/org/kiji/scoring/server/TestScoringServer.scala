@@ -44,6 +44,9 @@ class TestScoringServer extends KijiClientTest {
   val emailAddress = "name@company.com"
   val tableLayout = KijiTableLayouts.getLayout("org/kiji/scoring/server/sample/user_table.json")
 
+  val empty_data_request = Base64.encodeBase64String(SerializationUtils
+      .serialize(KijiDataRequest.empty()))
+
   @Before
   def setup() {
     new InstanceBuilder(getKiji)
@@ -82,7 +85,7 @@ class TestScoringServer extends KijiClientTest {
       val connector = server.server.getConnectors()(0)
       val response = TestUtils.scoringServerResponse(connector.getLocalPort,
         "org/kiji/test/sample_model/0.0.1/?eid=[12345]&request=" +
-            Base64.encodeBase64String(SerializationUtils.serialize(KijiDataRequest.empty())))
+            empty_data_request)
       assert(Integer.parseInt(response.getValue) == emailAddress.length())
     } finally {
       server.stop()
@@ -105,7 +108,7 @@ class TestScoringServer extends KijiClientTest {
       TestUtils.scan(server)
       val response = TestUtils.scoringServerResponse(connector.getLocalPort,
         "org/kiji/test/sample_model/0.0.1/?eid=[12345]&request=" +
-            Base64.encodeBase64String(SerializationUtils.serialize(KijiDataRequest.empty())))
+            empty_data_request)
 
       assert(Integer.parseInt(response.getValue.toString) == emailAddress.length())
 
@@ -123,7 +126,7 @@ class TestScoringServer extends KijiClientTest {
         try {
           TestUtils.scoringServerResponse(connector.getLocalPort,
             "org/kiji/test/sample_model/0.0.1/?eid=[12345]&request=" +
-                Base64.encodeBase64String(SerializationUtils.serialize(KijiDataRequest.empty())))
+                empty_data_request)
           Assert.fail("Scoring server should have thrown a 404 but didn't")
         } catch {
           case ex: FileNotFoundException => ()
@@ -151,12 +154,10 @@ class TestScoringServer extends KijiClientTest {
       // "%3D%3D%3D is a url encoding of '==='.
       val response = TestUtils.scoringServerResponse(connector.getLocalPort,
         "org/kiji/test/sample_model/0.0.1/?eid=[12345]&fresh.jennyanydots=%3D%3D%3D&request=" +
-            Base64.encodeBase64String(SerializationUtils.serialize(KijiDataRequest.empty())))
+            empty_data_request)
       assert(Integer.parseInt(response.getValue.toString) == "===".length())
     } finally {
       server.stop()
     }
   }
-
-
 }

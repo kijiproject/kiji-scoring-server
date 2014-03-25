@@ -19,28 +19,20 @@
 
 package org.kiji.scoring.server.servlets
 
-import java.io.BufferedWriter
-import java.io.OutputStreamWriter
+import java.util.{Map => JMap}
+
 import javax.servlet.http.HttpServlet
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
-import java.util.{Map => JMap}
+
 import scala.collection.JavaConverters.enumerationAsScalaIteratorConverter
 import scala.collection.JavaConverters.mapAsJavaMapConverter
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.google.common.base.Preconditions
-import com.google.gson.Gson
 import org.apache.commons.codec.binary.Base64
 import org.apache.commons.lang.SerializationUtils
 import org.apache.hadoop.hbase.HBaseConfiguration
-import org.apache.hadoop.util.ReflectionUtils
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
-
 import org.kiji.annotations.ApiAudience
 import org.kiji.annotations.ApiStability
-import org.kiji.express.flow.util.ResourceUtil.doAndClose
 import org.kiji.express.flow.util.ResourceUtil.withKijiTable
 import org.kiji.mapreduce.kvstore.KeyValueStoreReaderFactory
 import org.kiji.schema.{EntityId => JEntityId}
@@ -52,10 +44,35 @@ import org.kiji.schema.KijiTableReader
 import org.kiji.schema.KijiTableReaderPool
 import org.kiji.schema.KijiURI
 import org.kiji.schema.layout.KijiTableLayout
-import org.kiji.schema.tools.ToolUtils
+import org.kiji.schema.util.JsonEntityIdParser
 import org.kiji.scoring.ScoreFunction
 import org.kiji.scoring.ScoreFunction.TimestampedValue
-import org.kiji.scoring.impl.InternalFreshenerContext // TODO make this framework instead of private
+import org.kiji.scoring.impl.InternalFreshenerContext
+import org.kiji.scoring.server.KijiScoringServerCell
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
+
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.google.common.base.Preconditions
+import com.google.gson.Gson
+
+import org.kiji.annotations.ApiAudience
+import org.kiji.annotations.ApiStability
+import org.kiji.express.flow.util.ResourceUtil.withKijiTable
+import org.kiji.mapreduce.kvstore.KeyValueStoreReaderFactory
+import org.kiji.schema.{EntityId => JEntityId}
+import org.kiji.schema.KijiColumnName
+import org.kiji.schema.KijiDataRequest
+import org.kiji.schema.KijiRowData
+import org.kiji.schema.KijiTable
+import org.kiji.schema.KijiTableReader
+import org.kiji.schema.KijiTableReaderPool
+import org.kiji.schema.KijiURI
+import org.kiji.schema.layout.KijiTableLayout
+import org.kiji.schema.util.JsonEntityIdParser
+import org.kiji.scoring.ScoreFunction
+import org.kiji.scoring.ScoreFunction.TimestampedValue
+import org.kiji.scoring.impl.InternalFreshenerContext
 import org.kiji.scoring.server.KijiScoringServerCell
 
 /**
@@ -124,8 +141,11 @@ class GenericScoringServlet[T] extends HttpServlet {
     // disambiguates the method reference.
     val eidString: String =
         Preconditions.checkNotNull(request.getParameter("eid"), "Entity ID required!%s", "")
+    val encodedRequest: String = Preconditions.checkNotNull(request.getParameter("request"),
+        "Encoded data request required.", "")
+
     val entityId: JEntityId =
-      ToolUtils.createEntityIdFromUserInputs(eidString, attachedTableLayout)
+      JsonEntityIdParser.create(eidString, attachedTableLayout).getEntityId()
 
     // Fetch a map of request parameters.
     val parameterOverrides: JMap[String, String] = request
@@ -140,7 +160,7 @@ class GenericScoringServlet[T] extends HttpServlet {
 
     // Deserialize the client data request.
     val clientDataRequest: KijiDataRequest =
-        deserializeKijiDataRequest(request.getParameter("request"))
+        deserializeKijiDataRequest(encodedRequest)
 
     val output: KijiScoringServerCell = score(clientDataRequest, parameterOverrides, entityId)
     writeResponse(output, response)
