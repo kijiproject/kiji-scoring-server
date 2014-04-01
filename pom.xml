@@ -178,12 +178,12 @@
           <groupId>javax.servlet.jsp</groupId>
         </exclusion>
         <exclusion>
-          <artifactId>tomcat</artifactId>
-          <groupId>jasper-runtime</groupId>
+          <groupId>tomcat</groupId>
+          <artifactId>jasper-runtime</artifactId>
         </exclusion>
         <exclusion>
-          <artifactId>tomcat</artifactId>
-          <groupId>jasper-compiler</groupId>
+          <groupId>tomcat</groupId>
+          <artifactId>jasper-compiler</artifactId>
         </exclusion>
       </exclusions>
       <scope>compile</scope>
@@ -223,12 +223,12 @@
           <groupId>org.jruby</groupId>
         </exclusion>
         <exclusion>
-          <artifactId>tomcat</artifactId>
-          <groupId>jasper-runtime</groupId>
+          <groupId>tomcat</groupId>
+          <artifactId>jasper-runtime</artifactId>
         </exclusion>
         <exclusion>
-          <artifactId>tomcat</artifactId>
-          <groupId>jasper-compiler</groupId>
+          <groupId>tomcat</groupId>
+          <artifactId>jasper-compiler</artifactId>
         </exclusion>
       </exclusions>
       <scope>compile</scope>
