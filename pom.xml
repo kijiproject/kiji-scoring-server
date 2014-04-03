@@ -35,13 +35,13 @@
     <!-- use UTF-8 for everything -->
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-    <kiji-schema.version>1.4.0-SNAPSHOT</kiji-schema.version>
-    <kiji-scoring.version>0.13.0-SNAPSHOT</kiji-scoring.version>
-    <kiji-express.version>2.0.0-SNAPSHOT</kiji-express.version>
-    <kiji-modeling.version>0.8.0-SNAPSHOT</kiji-modeling.version>
-    <kiji-mapreduce.version>1.2.6-SNAPSHOT</kiji-mapreduce.version>
-    <kiji-model-repo.version>0.7.0-SNAPSHOT</kiji-model-repo.version>
-    <fake-hbase.version>0.1.5-SNAPSHOT</fake-hbase.version>
+    <kiji-schema.version>1.4.0</kiji-schema.version>
+    <kiji-scoring.version>0.13.0</kiji-scoring.version>
+    <kiji-express.version>2.0.0</kiji-express.version>
+    <kiji-modeling.version>0.8.0</kiji-modeling.version>
+    <kiji-mapreduce.version>1.2.6</kiji-mapreduce.version>
+    <kiji-model-repo.version>0.7.0</kiji-model-repo.version>
+    <fake-hbase.version>0.1.5</fake-hbase.version>
     <jackson.version>2.3.2</jackson.version>
     <jetty.version>8.1.12.v20130726</jetty.version>
     <junit.version>4.11</junit.version>
