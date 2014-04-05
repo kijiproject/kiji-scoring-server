@@ -22,7 +22,7 @@
 
   <groupId>org.kiji.scoring</groupId>
   <artifactId>kiji-scoring-server</artifactId>
-  <version>0.13.0-SNAPSHOT</version>
+  <version>0.12.1-SNAPSHOT</version>
   <packaging>jar</packaging>
 
   <parent>
@@ -37,8 +37,8 @@
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <kiji-schema.version>1.4.0</kiji-schema.version>
     <kiji-scoring.version>0.13.0</kiji-scoring.version>
-    <kiji-express.version>2.0.0</kiji-express.version>
-    <kiji-modeling.version>0.8.0</kiji-modeling.version>
+    <kiji-express.version>2.0.1</kiji-express.version>
+    <kiji-modeling.version>0.8.1</kiji-modeling.version>
     <kiji-mapreduce.version>1.2.6</kiji-mapreduce.version>
     <kiji-model-repo.version>0.7.0</kiji-model-repo.version>
     <fake-hbase.version>0.1.5</fake-hbase.version>
