@@ -62,13 +62,14 @@ if [ -z "$PIDFILE" ]; then
   PIDFILE=${BASEDIR}/kiji-scoring-server.pid
 fi
 
-kiji_jar=$(echo ${BASEDIR}/kiji-scoring-server*.jar)
+kiji_jar=$(echo ${BASEDIR}/lib/kiji-scoring-server*.jar)
 scoring_server_cp="${kiji_jar}:${BASEDIR}/lib/*:${KIJI_CLASSPATH}"
 
 # create logs directory
 mkdir -p ${BASEDIR}/logs
 
-${JAVA_HOME}/bin/java -cp ${scoring_server_cp} org.kiji.scoring.server.ScoringServer ${BASEDIR} \
+${JAVA_HOME}/bin/java -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled \
+-cp ${scoring_server_cp} org.kiji.scoring.server.ScoringServer ${BASEDIR} \
  > ${BASEDIR}/logs/console.out 2>&1 &
 
 scoring_server_pid=$!
@@ -81,5 +82,3 @@ if [ 0 == $? ]; then
 else
   exit 1
 fi
-
-

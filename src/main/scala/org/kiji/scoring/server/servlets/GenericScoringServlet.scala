@@ -19,7 +19,7 @@
 
 package org.kiji.scoring.server.servlets
 
-import java.util.{Map => JMap}
+import java.util.{ Map => JMap }
 
 import javax.servlet.http.HttpServlet
 import javax.servlet.http.HttpServletRequest
@@ -28,39 +28,21 @@ import javax.servlet.http.HttpServletResponse
 import scala.collection.JavaConverters.enumerationAsScalaIteratorConverter
 import scala.collection.JavaConverters.mapAsJavaMapConverter
 
-import org.apache.commons.codec.binary.Base64
-import org.apache.commons.lang.SerializationUtils
-import org.apache.hadoop.hbase.HBaseConfiguration
-import org.kiji.annotations.ApiAudience
-import org.kiji.annotations.ApiStability
-import org.kiji.express.flow.util.ResourceUtil.withKijiTable
-import org.kiji.mapreduce.kvstore.KeyValueStoreReaderFactory
-import org.kiji.schema.{EntityId => JEntityId}
-import org.kiji.schema.KijiColumnName
-import org.kiji.schema.KijiDataRequest
-import org.kiji.schema.KijiRowData
-import org.kiji.schema.KijiTable
-import org.kiji.schema.KijiTableReader
-import org.kiji.schema.KijiTableReaderPool
-import org.kiji.schema.KijiURI
-import org.kiji.schema.layout.KijiTableLayout
-import org.kiji.schema.util.JsonEntityIdParser
-import org.kiji.scoring.ScoreFunction
-import org.kiji.scoring.ScoreFunction.TimestampedValue
-import org.kiji.scoring.impl.InternalFreshenerContext
-import org.kiji.scoring.server.KijiScoringServerCell
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
-
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.common.base.Preconditions
 import com.google.gson.Gson
+import org.apache.commons.codec.binary.Base64
+import org.apache.commons.lang.SerializationUtils
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.hbase.HBaseConfiguration
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 
 import org.kiji.annotations.ApiAudience
 import org.kiji.annotations.ApiStability
 import org.kiji.express.flow.util.ResourceUtil.withKijiTable
 import org.kiji.mapreduce.kvstore.KeyValueStoreReaderFactory
-import org.kiji.schema.{EntityId => JEntityId}
+import org.kiji.schema.{ EntityId => JEntityId }
 import org.kiji.schema.KijiColumnName
 import org.kiji.schema.KijiDataRequest
 import org.kiji.schema.KijiRowData
@@ -92,18 +74,20 @@ class GenericScoringServlet[T] extends HttpServlet {
   private var attachedColumn: KijiColumnName = null
   private var recordParameters: JMap[String, String] = null
   private var kvFactory: KeyValueStoreReaderFactory = null
+  private val mConf: Configuration = HBaseConfiguration.create()
 
   override def init() {
     val tableURI: KijiURI = KijiURI.newBuilder(getInitParameter(TABLE_URI_KEY)).build()
 
-    val (layout, pool) = withKijiTable(tableURI, HBaseConfiguration.create()) {
-      table: KijiTable => {
-        val pool = KijiTableReaderPool.Builder.create()
+    val (layout, pool) = withKijiTable(tableURI, mConf) {
+      table: KijiTable =>
+        {
+          val pool = KijiTableReaderPool.Builder.create()
             .withExhaustedAction(KijiTableReaderPool.Builder.WhenExhaustedAction.GROW)
             .withReaderFactory(table.getReaderFactory)
             .build()
-        (table.getLayout, pool)
-      }
+          (table.getLayout, pool)
+        }
     }
     attachedTableLayout = layout
     readerPool = pool
@@ -114,11 +98,10 @@ class GenericScoringServlet[T] extends HttpServlet {
 
     attachedColumn = new KijiColumnName(getServletConfig.getInitParameter(ATTACHED_COLUMN_KEY))
     recordParameters = GSON.fromJson(
-        getServletConfig.getInitParameter(RECORD_PARAMETERS_KEY),
-        classOf[JMap[String, String]]
-    )
+      getServletConfig.getInitParameter(RECORD_PARAMETERS_KEY),
+      classOf[JMap[String, String]])
     val setupContext: InternalFreshenerContext =
-        InternalFreshenerContext.create(attachedColumn, recordParameters)
+      InternalFreshenerContext.create(attachedColumn, recordParameters)
     kvFactory = KeyValueStoreReaderFactory.create(scoreFunction.getRequiredStores(setupContext))
     setupContext.setKeyValueStoreReaderFactory(kvFactory)
     scoreFunction.setup(setupContext)
@@ -126,46 +109,50 @@ class GenericScoringServlet[T] extends HttpServlet {
 
   override def destroy() {
     val cleanupContext: InternalFreshenerContext =
-        InternalFreshenerContext.create(attachedColumn, recordParameters, kvFactory)
+      InternalFreshenerContext.create(attachedColumn, recordParameters, kvFactory)
     scoreFunction.cleanup(cleanupContext)
     kvFactory.close()
     readerPool.close()
+    // Prevent Hadoop Configuration from having a reference to the current webapp
+    // classloader causing a leak when undeploying.
+    mConf.setClassLoader(null)
   }
 
   override def doGet(
-      request: HttpServletRequest,
-      response: HttpServletResponse
-  ) {
+    request: HttpServletRequest,
+    response: HttpServletResponse
+    ) {
     LOG.debug("Request received: {}", request)
     // Fetch the entity_id parameter from the URL. Fail if not specified. The empty string
     // disambiguates the method reference.
     val eidString: String =
-        Preconditions.checkNotNull(request.getParameter("eid"), "Entity ID required!%s", "")
-    val encodedRequest: String = Preconditions.checkNotNull(request.getParameter("request"),
-        "Encoded data request required.", "")
+      Preconditions.checkNotNull(request.getParameter("eid"), "Entity ID required!%s", "")
+    val encodedRequest: String = request.getParameter("request")
 
     val entityId: JEntityId =
       JsonEntityIdParser.create(eidString, attachedTableLayout).getEntityId()
 
     // Fetch a map of request parameters.
     val parameterOverrides: JMap[String, String] = request
-        .getParameterNames
-        .asScala
-        .collect {
-          case param: String if param.startsWith("fresh.") =>
-              (param.stripPrefix("fresh."), request.getParameter(param))
-        }
-        .toMap
-        .asJava
+      .getParameterNames
+      .asScala
+      .collect {
+        case param: String if param.startsWith("fresh.") =>
+          (param.stripPrefix("fresh."), request.getParameter(param))
+      }
+      .toMap
+      .asJava
 
     // Deserialize the client data request.
-    val clientDataRequest: KijiDataRequest =
-        deserializeKijiDataRequest(encodedRequest)
+    val clientDataRequest: KijiDataRequest = if (encodedRequest != null) {
+      deserializeKijiDataRequest(encodedRequest)
+    } else {
+      KijiDataRequest.empty()
+    }
 
     val output: KijiScoringServerCell = score(clientDataRequest, parameterOverrides, entityId)
     writeResponse(output, response)
   }
-
 
   /**
    * Score the given entity with the model contained in this servlet.
@@ -176,22 +163,27 @@ class GenericScoringServlet[T] extends HttpServlet {
    * @return a KijiScoringServerCell which will be returned to the http caller.
    */
   private def score(
-      clientDataRequest: KijiDataRequest,
-      parameterOverrides: JMap[String, String],
-      entityId: JEntityId
-  ): KijiScoringServerCell = {
+    clientDataRequest: KijiDataRequest,
+    parameterOverrides: JMap[String, String],
+    entityId: JEntityId
+    ): KijiScoringServerCell = {
     val context: InternalFreshenerContext = InternalFreshenerContext.create(
       clientDataRequest,
       attachedColumn,
       recordParameters,
       parameterOverrides,
-      kvFactory
-    )
+      kvFactory)
 
     val rowData: KijiRowData = {
       val reader: KijiTableReader = readerPool.borrowObject()
       try {
-        reader.get(entityId, scoreFunction.getDataRequest(context))
+        val scoreFnRequest = scoreFunction.getDataRequest(context)
+        val dataRequest = if (scoreFnRequest == null) {
+          KijiDataRequest.empty()
+        } else {
+          scoreFnRequest
+        }
+        reader.get(entityId, dataRequest)
       } finally {
         reader.close()
       }
@@ -203,8 +195,7 @@ class GenericScoringServlet[T] extends HttpServlet {
       attachedColumn.getFamily,
       attachedColumn.getQualifier,
       score.getTimestamp,
-      score.getValue
-    )
+      score.getValue)
   }
 }
 
@@ -228,8 +219,8 @@ object GenericScoringServlet {
    * @return the KijiDataRequest represented by the serialized input.
    */
   private def deserializeKijiDataRequest(
-      base64encodedRequest: String
-  ): KijiDataRequest = {
+    base64encodedRequest: String
+    ): KijiDataRequest = {
     val bytes: Array[Byte] = Base64.decodeBase64(base64encodedRequest)
     SerializationUtils.deserialize(bytes).asInstanceOf[KijiDataRequest]
   }
@@ -241,9 +232,8 @@ object GenericScoringServlet {
    * @param response into which the score will be written.
    */
   private def writeResponse(
-      score: KijiScoringServerCell,
-      response: HttpServletResponse
-  ) {
+    score: KijiScoringServerCell,
+    response: HttpServletResponse) {
     response.setStatus(200)
     response.getWriter.print(MAPPER.valueToTree(score).toString)
   }

@@ -21,7 +21,7 @@ package org.kiji.scoring.server.servlets
 
 import java.io.File
 import java.io.PrintWriter
-import java.util.{Map => JMap}
+import java.util.{ Map => JMap }
 import javax.servlet.http.HttpServlet
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
@@ -75,6 +75,8 @@ class ModelRepoScannerServlet extends HttpServlet with Runnable {
   private val manuallyDeployedModels: mutable.Set[ArtifactName] = mutable.Set()
   private[this] var state: ModelRepoScannerState = Initializing
 
+  private val README_FILE = "README.txt"
+
   override def init() {
     baseDir = new File(getInitParameter("base-dir"))
     scanIntervalSeconds = getInitParameter("scan-interval-seconds").toInt
@@ -113,67 +115,75 @@ class ModelRepoScannerServlet extends HttpServlet with Runnable {
 
     // Validate webapps
     val (_, invalidWarFiles) = webappsFolder.listFiles.partition {
-      file: File => file.isFile &&
+      file: File =>
+        file.isFile &&
           ((file.getName.endsWith(".war") &&
-          new File(webappsFolder, file.getName + ".loc").exists) ||
-          (file.getName.endsWith(".loc") &&
-          new File(webappsFolder, file.getName.dropRight(4)).exists()))
+            new File(webappsFolder, file.getName + ".loc").exists) ||
+            (file.getName.endsWith(".loc") &&
+              new File(webappsFolder,
+                file.getName.dropRight(4)).exists()) || file.getName() == README_FILE)
     }
     invalidWarFiles.foreach { delete }
 
     // Validate the templates to make sure that they are pointing to a valid
     // war file.
     val (validTemplates, invalidTemplates) = templatesFolder.listFiles.partition {
-      templateDir: File => {
-        val (_, warBaseName) = parseDirectoryName(templateDir.getName)
-        // For a template to be valid, it must have a name and warBaseName AND the
-        // warBaseName.war must exist AND warBaseName.war.loc must also exist
-        val warFile = new File(webappsFolder, warBaseName.getOrElse("") + ".war")
-        val locFile = new File(webappsFolder, warBaseName.getOrElse("") + ".war.loc")
+      templateDir: File =>
+        {
+          val (_, warBaseName) = parseDirectoryName(templateDir.getName)
+          // For a template to be valid, it must have a name and warBaseName AND the
+          // warBaseName.war must exist AND warBaseName.war.loc must also exist
+          val warFile = new File(webappsFolder, warBaseName.getOrElse("") + ".war")
+          val locFile = new File(webappsFolder, warBaseName.getOrElse("") + ".war.loc")
 
-        templateDir.isDirectory && !warBaseName.isEmpty && warFile.exists && locFile.exists
-      }
+          templateDir.getName() == README_FILE ||
+            (templateDir.isDirectory && !warBaseName.isEmpty && warFile.exists && locFile.exists)
+        }
     }
 
     invalidTemplates.foreach {
       template: File => {
-        LOG.info("Deleting invalid template directory {}", template)
-        delete(template)
-      }
+          LOG.info("Deleting invalid template directory {}", template)
+          delete(template)
+        }
     }
 
     validTemplates.foreach {
       template: File => {
-        val (templateName, warBaseName) = parseDirectoryName(template.getName)
-        val locFile = new File(webappsFolder, warBaseName.get + ".war.loc")
-        val location = getLocationInformation(locFile)
-        deployedWarFiles.put(location, templateName)
-      }
+          if (template.isDirectory()) {
+            val (templateName, warBaseName) = parseDirectoryName(template.getName)
+            val locFile = new File(webappsFolder, warBaseName.get + ".war.loc")
+            val location = getLocationInformation(locFile)
+            deployedWarFiles.put(location, templateName)
+          }
+        }
     }
 
     // Loop through the instances and add them to the map.
     instancesFolder.listFiles.foreach {
       instance: File => {
-        //templateName=artifactFullyQualifiedName
-        val (templateName, artifactName) = parseDirectoryName(instance.getName)
+          if (instance.getName() != README_FILE) {
+            //templateName=artifactFullyQualifiedName
+            val (templateName, artifactName) = parseDirectoryName(instance.getName)
 
-        // This is an inefficient lookup on validTemplates but it's a one time thing on
-        // startup of the server scanner.
-        if (!instance.isDirectory ||
-            artifactName.isEmpty ||
-            !validTemplates.contains(new File(templatesFolder, templateName))) {
-          LOG.info("Deleting invalid instance " + instance.getPath)
-          delete(instance)
-        } else {
-          try {
-            val parsedArtifact = new ArtifactName(artifactName.get)
-            artifactToInstanceDir.put(parsedArtifact, instance)
-          } catch {
-            // Indicates an invalid ArtifactName.
-            case ex: IllegalArgumentException => delete(instance)
+            // This is an inefficient lookup on validTemplates but it's a one time thing on
+            // startup of the server scanner.
+            if (!instance.isDirectory ||
+              artifactName.isEmpty ||
+              !validTemplates.contains(new File(templatesFolder, templateName))) {
+              LOG.info("Deleting invalid instance " + instance.getPath)
+              delete(instance)
+            } else {
+              try {
+                val parsedArtifact = new ArtifactName(artifactName.get)
+                artifactToInstanceDir.put(parsedArtifact, instance)
+              } catch {
+                // Indicates an invalid ArtifactName.
+                case ex: IllegalArgumentException => delete(instance)
+              }
+            }
           }
         }
-      }
     }
 
     if (scanIntervalSeconds > 0) { checkForUpdates() }
@@ -191,22 +201,20 @@ class ModelRepoScannerServlet extends HttpServlet with Runnable {
 
   override def doGet(
     request: HttpServletRequest,
-    response: HttpServletResponse
-  ) {
+    response: HttpServletResponse) {
     val (deployed, undeployed) = checkForUpdates()
     response.getWriter.print(
-        """{
+      """{
           |  "deployed":"%s",
           |  "undeployed":"%s"
           |}
         """.stripMargin.format(
-            Templates.iterableToJson(deployed), Templates.iterableToJson(undeployed)))
+        Templates.iterableToJson(deployed), Templates.iterableToJson(undeployed)))
   }
 
   override def doPost(
     request: HttpServletRequest,
-    response: HttpServletResponse
-  ) {
+    response: HttpServletResponse) {
     val operation = request.getParameter("do")
     val model = new ArtifactName(request.getParameter("model"))
     manuallyDeployedModels.synchronized {
@@ -246,7 +254,7 @@ class ModelRepoScannerServlet extends HttpServlet with Runnable {
       }
     } else {
       LOG.debug(
-          "ModelRepoScannerServlet started without scanning interval; Will not automatically scan.")
+        "ModelRepoScannerServlet started without scanning interval; Will not automatically scan.")
     }
   }
 
@@ -257,37 +265,39 @@ class ModelRepoScannerServlet extends HttpServlet with Runnable {
    */
   def checkForUpdates(): (Set[ArtifactName], Set[ArtifactName]) = {
     val allEnabledModels: Map[ArtifactName, ModelContainer] = getAllEnabledModels.
-        foldLeft(Map[ArtifactName, ModelContainer]()) {
-          (accumulatorMap: Map[ArtifactName, ModelContainer], model: ModelContainer) =>
-            accumulatorMap + (model.getArtifactName -> model)
-        }
+      foldLeft(Map[ArtifactName, ModelContainer]()) {
+        (accumulatorMap: Map[ArtifactName, ModelContainer], model: ModelContainer) =>
+          accumulatorMap + (model.getArtifactName -> model)
+      }
 
     // Split the model map into those that are already deployed and those that should be undeployed
     // based on whether or not the currently enabled models contain the deployed model.
     val (toKeep, toUndeploy) = artifactToInstanceDir.partition {
-        kv: (ArtifactName, File) =>
-          allEnabledModels.contains(kv._1) || manuallyDeployedModels.contains(kv._1)
-      }
+      kv: (ArtifactName, File) =>
+        allEnabledModels.contains(kv._1) || manuallyDeployedModels.contains(kv._1)
+    }
 
     // For each model to undeploy, remove it.
     toUndeploy.foreach {
-      kv: (ArtifactName, File) => {
-        val (artifactName, location) = kv
-        LOG.info("Undeploying model: %s from location: %s".format(
+      kv: (ArtifactName, File) =>
+        {
+          val (artifactName, location) = kv
+          LOG.info("Undeploying model: %s from location: %s".format(
             artifactName.getFullyQualifiedName, location))
-        delete(location)
-      }
+          delete(location)
+        }
     }
 
     // Now find the set of lifecycles to add by diffing the current with the already deployed and
     // add those.
     val toDeploy: Set[ArtifactName] = allEnabledModels.keySet.diff(toKeep.keySet)
     toDeploy.foreach {
-      artifactName: ArtifactName => {
-        val model: ModelContainer = allEnabledModels(artifactName)
-        LOG.info("Deploying model: " + artifactName.getFullyQualifiedName)
-        deployArtifact(model)
-      }
+      artifactName: ArtifactName =>
+        {
+          val model: ModelContainer = allEnabledModels(artifactName)
+          LOG.info("Deploying model: " + artifactName.getFullyQualifiedName)
+          deployArtifact(model)
+        }
     }
 
     (toDeploy, toUndeploy.keySet.toSet)
@@ -300,8 +310,7 @@ class ModelRepoScannerServlet extends HttpServlet with Runnable {
    * @param model is the specified ModelContainer to deploy.
    */
   private def deployArtifact(
-      model: ModelContainer
-  ) {
+    model: ModelContainer) {
     val mavenArtifact: MavenArtifactName = new MavenArtifactName(model.getArtifactName)
     val artifact: ArtifactName = model.getArtifactName
 
@@ -314,15 +323,14 @@ class ModelRepoScannerServlet extends HttpServlet with Runnable {
       MODEL_NAME -> artifact.getFullyQualifiedName,
       CONTEXT_PATH -> contextPath,
       GenericScoringServlet.ATTACHED_COLUMN_KEY ->
-          model.getModelContainer.getColumnName,
+        model.getModelContainer.getColumnName,
       GenericScoringServlet.SCORE_FUNCTION_CLASS_KEY ->
-          model.getModelContainer.getScoreFunctionClass,
+        model.getModelContainer.getScoreFunctionClass,
       GenericScoringServlet.TABLE_URI_KEY ->
-          model.getModelContainer.getTableUri,
+        model.getModelContainer.getTableUri,
       GenericScoringServlet.RECORD_PARAMETERS_KEY ->
-          GenericScoringServlet.GSON.toJson(
-              model.getModelContainer.getParameters, classOf[JMap[String, String]])
-    )
+        GenericScoringServlet.GSON.toJson(
+          model.getModelContainer.getParameters, classOf[JMap[String, String]]))
 
     deployedWarFiles.get(model.getLocation) match {
       case Some(templateName: String) => {
@@ -334,13 +342,13 @@ class ModelRepoScannerServlet extends HttpServlet with Runnable {
         // Download the artifact to a temporary location.
         val artifactFile: File = File.createTempFile("artifact", "war")
         val finalArtifactName: String = "%s.%s".format(
-            mavenArtifact.getGroupName, FilenameUtils.getName(model.getLocation))
+          mavenArtifact.getGroupName, FilenameUtils.getName(model.getLocation))
         model.downloadArtifact(artifactFile)
 
         // Create a new Jetty template to map to the war file.
         // Template is (fullyQualifiedName=warFileBase)
         val templateDirName: String = "%s=%s".format(
-            fullyQualifiedName, FilenameUtils.getBaseName(finalArtifactName))
+          fullyQualifiedName, FilenameUtils.getBaseName(finalArtifactName))
         val tempTemplateDir: File = new File(Files.createTempDir(), "WEB-INF")
         tempTemplateDir.mkdirs()
 
@@ -356,8 +364,7 @@ class ModelRepoScannerServlet extends HttpServlet with Runnable {
 
         FileUtils.moveDirectory(
           tempTemplateDir.getParentFile,
-          new File(templatesFolder, templateDirName)
-        )
+          new File(templatesFolder, templateDirName))
 
         // Create a new instance.
         createNewInstance(model, fullyQualifiedName, templateParamValues)
@@ -378,8 +385,7 @@ class ModelRepoScannerServlet extends HttpServlet with Runnable {
    */
   private def writeLocationInformation(
     artifactFileName: String,
-    model: ModelContainer
-  ) {
+    model: ModelContainer) {
     doAndClose(new PrintWriter(new File(webappsFolder, artifactFileName + ".loc"), "UTF-8")) {
       pw: PrintWriter => pw.println(model.getLocation)
     }
@@ -398,8 +404,7 @@ class ModelRepoScannerServlet extends HttpServlet with Runnable {
   private def createNewInstance(
     model: ModelContainer,
     templateName: String,
-    bookmarkParams: Map[String, String]
-  ) {
+    bookmarkParams: Map[String, String]) {
     // This will create a new instance by leveraging the template files on the classpath
     // and create the right directory. Maybe first create the directory in a temp location and
     // move to the right place.
@@ -437,7 +442,7 @@ object ModelRepoScannerServlet {
   val LOG: Logger = LoggerFactory.getLogger(classOf[ModelRepoScannerServlet])
 
   val ModelsListContextKey: String =
-      "org.kiji.scoring.server.servlets.ModelRepoScannerServlet.models"
+    "org.kiji.scoring.server.servlets.ModelRepoScannerServlet.models"
 
   // Constants that will get used when generating the various files to deploy a model.
   val CONTEXT_PATH: String = "context-path"
@@ -471,8 +476,7 @@ object ModelRepoScannerServlet {
    * @param targetFile into which to write template.xml contents.
    */
   private def createTemplateXml(
-    targetFile: File
-  ) {
+    targetFile: File) {
     doAndClose(new PrintWriter(targetFile, "UTF-8")) {
       pw: PrintWriter => pw.print(Templates.generateTemplateXml())
     }
@@ -488,8 +492,7 @@ object ModelRepoScannerServlet {
    */
   private def createOverlayXml(
     targetFile: File,
-    contextPath: String
-  ) {
+    contextPath: String) {
     doAndClose(new PrintWriter(targetFile, "UTF-8")) {
       pw: PrintWriter => pw.print(Templates.generateOverlayXml(contextPath))
     }
@@ -505,14 +508,14 @@ object ModelRepoScannerServlet {
    */
   private def createWebOverlayXml(
     targetFile: File,
-    initParams: Map[String, String]
-  ) {
+    initParams: Map[String, String]) {
     doAndClose(new PrintWriter(targetFile, "UTF-8")) {
-      pw: PrintWriter => {
-        val webOverlay = Templates.generateWebOverlayXml(
+      pw: PrintWriter =>
+        {
+          val webOverlay = Templates.generateWebOverlayXml(
             initParams(MODEL_NAME), initParams)
-        pw.print(webOverlay)
-      }
+          pw.print(webOverlay)
+        }
     }
   }
 
@@ -525,8 +528,7 @@ object ModelRepoScannerServlet {
    * @return the location information in the file.
    */
   private def getLocationInformation(
-    locationFile: File
-  ): String = {
+    locationFile: File): String = {
     doAndClose(Source.fromFile(locationFile)) {
       inputSource: BufferedSource => inputSource.mkString.trim
     }
@@ -554,8 +556,7 @@ object ModelRepoScannerServlet {
    *     "=" in the string, then the second part will be None.
    */
   private def parseDirectoryName(
-    inputDirectory: String
-  ): (String, Option[String]) = {
+    inputDirectory: String): (String, Option[String]) = {
     val parts: Array[String] = inputDirectory.split("=")
     if (parts.length == 1) {
       (parts(0), None)
