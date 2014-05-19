@@ -19,8 +19,7 @@
 
 package org.kiji.scoring.server
 
-import java.io.File
-import java.io.FileOutputStream
+import java.io.{FileNotFoundException, File, FileOutputStream}
 import java.util.jar.JarOutputStream
 import java.net.URL
 
@@ -72,11 +71,15 @@ class TestGetModelServlet extends KijiClientTest {
 
       val url = new URL("http://localhost:%s/admin/get?model=%s".format(
         connector.getLocalPort, "org.kiji.test.sample_model-0.0.1"))
-      val response = IOUtils.toString(url.openStream(), "UTF-8")
-      Assert.assertEquals(
-        """{"org.kiji.test.sample_model-0.0.1":"models/org/kiji/test/sample_model/0.0.1"}""",
-        response
-      )
+
+      def test() {
+        val response = IOUtils.toString(url.openStream(), "UTF-8")
+        Assert.assertEquals(
+          """{"org.kiji.test.sample_model-0.0.1":"models/org/kiji/test/sample_model/0.0.1"}""",
+          response)
+      }
+
+      TestUtils.tryWaitingForAsyncOperation(test(), 10 * 1000)
     } finally {
       server.stop()
     }

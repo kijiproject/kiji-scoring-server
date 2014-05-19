@@ -69,15 +69,18 @@ class TestListModelsServlet extends KijiClientTest {
     try {
       val connector = server.server.getConnectors()(0)
       TestUtils.scan(server)
-
       val url = new URL("http://localhost:%s/admin/list".format(connector.getLocalPort))
-      val response = IOUtils.toString(url.openStream(), "UTF-8")
-      Assert.assertEquals(
-        """{
-          |  {"org.kiji.test.sample_model-0.0.1":"models/org/kiji/test/sample_model/0.0.1"}
-          |}""".stripMargin,
-        response
-      )
+
+      def test() {
+        val response = IOUtils.toString(url.openStream(), "UTF-8")
+        Assert.assertEquals(
+          """{
+            |  {"org.kiji.test.sample_model-0.0.1":"models/org/kiji/test/sample_model/0.0.1"}
+            |}""".stripMargin,
+          response)
+      }
+
+      TestUtils.tryWaitingForAsyncOperation(test(), 10 * 1000)
     } finally {
       server.stop()
     }

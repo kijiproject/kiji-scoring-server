@@ -83,10 +83,13 @@ class TestScoringServer extends KijiClientTest {
     try {
       TestUtils.scan(server)
       val connector = server.server.getConnectors()(0)
-      val response = TestUtils.scoringServerResponse(connector.getLocalPort,
-        "org/kiji/test/sample_model/0.0.1/?eid=[12345]&request=" +
-            empty_data_request)
-      assert(Integer.parseInt(response.getValue) == emailAddress.length())
+      def test() {
+        val response = TestUtils.scoringServerResponse(connector.getLocalPort,
+          "org/kiji/test/sample_model/0.0.1/?eid=[12345]&request=" +
+              empty_data_request)
+        assert(Integer.parseInt(response.getValue) == emailAddress.length())
+      }
+      TestUtils.tryWaitingForAsyncOperation(test(), 10 * 1000)
     } finally {
       server.stop()
     }
@@ -106,11 +109,14 @@ class TestScoringServer extends KijiClientTest {
     try {
       val connector = server.server.getConnectors()(0)
       TestUtils.scan(server)
-      val response = TestUtils.scoringServerResponse(connector.getLocalPort,
-        "org/kiji/test/sample_model/0.0.1/?eid=[12345]&request=" +
-            empty_data_request)
+      def test() {
+        val response = TestUtils.scoringServerResponse(connector.getLocalPort,
+          "org/kiji/test/sample_model/0.0.1/?eid=[12345]&request=" +
+              empty_data_request)
 
-      assert(Integer.parseInt(response.getValue.toString) == emailAddress.length())
+        assert(Integer.parseInt(response.getValue) == emailAddress.length())
+      }
+      TestUtils.tryWaitingForAsyncOperation(test(), 10 * 1000)
 
       val modelRepoTable = getKiji.openTable("model_repo")
       try {
@@ -123,14 +129,14 @@ class TestScoringServer extends KijiClientTest {
         }
         modelRepoTable.release()
         TestUtils.scan(server)
-        try {
+        def test2() {
           TestUtils.scoringServerResponse(connector.getLocalPort,
             "org/kiji/test/sample_model/0.0.1/?eid=[12345]&request=" +
                 empty_data_request)
           Assert.fail("Scoring server should have thrown a 404 but didn't")
-        } catch {
-          case ex: FileNotFoundException => ()
         }
+        TestUtils.tryWaitingForAsyncOperationExpectingException[FileNotFoundException](
+            test2(), 10 * 1000)
       }
     } finally {
       server.stop()
@@ -152,10 +158,13 @@ class TestScoringServer extends KijiClientTest {
       val connector = server.server.getConnectors()(0)
       TestUtils.scan(server)
       // "%3D%3D%3D is a url encoding of '==='.
-      val response = TestUtils.scoringServerResponse(connector.getLocalPort,
-        "org/kiji/test/sample_model/0.0.1/?eid=[12345]&fresh.jennyanydots=%3D%3D%3D&request=" +
-            empty_data_request)
-      assert(Integer.parseInt(response.getValue.toString) == "===".length())
+      def test() {
+        val response = TestUtils.scoringServerResponse(connector.getLocalPort,
+          "org/kiji/test/sample_model/0.0.1/?eid=[12345]&fresh.jennyanydots=%3D%3D%3D&request=" +
+              empty_data_request)
+        assert(Integer.parseInt(response.getValue.toString) == "===".length())
+      }
+      TestUtils.tryWaitingForAsyncOperation(test(), 10 * 1000)
     } finally {
       server.stop()
     }

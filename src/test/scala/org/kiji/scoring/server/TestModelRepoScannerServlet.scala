@@ -78,10 +78,14 @@ class TestModelRepoScannerServlet extends KijiClientTest {
       val instanceDir = new File(tempServerDir,
         "models/instances/org.kiji.test.sample_model-0.0.1=org.kiji.test.sample_model-0.0.1")
 
-      assert(webappFile.exists())
-      assert(locationFile.exists())
-      assert(templateDir.exists())
-      assert(instanceDir.exists())
+      def test() {
+        assert(webappFile.exists())
+        assert(locationFile.exists())
+        assert(templateDir.exists())
+        assert(instanceDir.exists())
+      }
+
+      TestUtils.tryWaitingForAsyncOperation(test(), 10 * 1000)
     } finally {
       server.stop()
     }
@@ -101,7 +105,10 @@ class TestModelRepoScannerServlet extends KijiClientTest {
 
       val instanceDir = new File(tempServerDir,
         "models/instances/org.kiji.test.sample_model-0.0.1=org.kiji.test.sample_model-0.0.1")
-      assert(instanceDir.exists())
+      def testInstanceDirExists() {
+        assert(instanceDir.exists())
+      }
+      TestUtils.tryWaitingForAsyncOperation(testInstanceDirExists(), 10 * 1000)
 
       // For now undeploy will delete the instance directory
       val modelRepoTable = getKiji.openTable(KijiModelRepository.MODEL_REPO_TABLE_NAME)
@@ -111,7 +118,10 @@ class TestModelRepoScannerServlet extends KijiClientTest {
       writer.close()
       modelRepoTable.release()
       TestUtils.scan(server)
-      assert(!instanceDir.exists())
+      def testInstanceDirDoesNotExist() {
+        assert(!instanceDir.exists())
+      }
+      TestUtils.tryWaitingForAsyncOperation(testInstanceDirDoesNotExist(), 10 * 1000)
     } finally {
       server.stop()
     }
@@ -144,17 +154,17 @@ class TestModelRepoScannerServlet extends KijiClientTest {
     server.start()
     try {
       TestUtils.scan(server)
-
-      assert(new File(tempServerDir, "models/instances/"
-          + "org.kiji.test.sample_model-0.0.1=org.kiji.test.sample_model-0.0.1").exists())
-
-      assert(new File(tempServerDir, "models/instances/"
-          + "org.kiji.test.sample_model-0.0.1=org.kiji.test.sample_model-0.0.2").exists())
-
-      assert(new File(tempServerDir, "models/webapps/"
-          + "org.kiji.test.sample_model-0.0.1.war").exists())
-      assert(!new File(tempServerDir, "models/webapps/"
-          + "org.kiji.test.sample_model-0.0.2.war").exists())
+      def test() {
+        assert(new File(tempServerDir, "models/instances/"
+            + "org.kiji.test.sample_model-0.0.1=org.kiji.test.sample_model-0.0.1").exists())
+        assert(new File(tempServerDir, "models/instances/"
+            + "org.kiji.test.sample_model-0.0.1=org.kiji.test.sample_model-0.0.2").exists())
+        assert(new File(tempServerDir, "models/webapps/"
+            + "org.kiji.test.sample_model-0.0.1.war").exists())
+        assert(!new File(tempServerDir, "models/webapps/"
+            + "org.kiji.test.sample_model-0.0.2.war").exists())
+      }
+      TestUtils.tryWaitingForAsyncOperation(test(), 10 * 1000)
     } finally {
       server.stop()
     }
@@ -181,23 +191,27 @@ class TestModelRepoScannerServlet extends KijiClientTest {
         server.start()
         try {
           TestUtils.scan(server)
+          def test() {
+            assert(new File(tempServerDir, "models/instances/"
+                + "org.kiji.test.sample_model-0.0.1=org.kiji.test.sample_model-0.0.1").exists())
+            assert(new File(tempServerDir, "models/instances/"
+                + "org.kiji.test.sample_model-0.0.1=org.kiji.test.sample_model-0.0.2").exists())
 
-          assert(new File(tempServerDir, "models/instances/"
-              + "org.kiji.test.sample_model-0.0.1=org.kiji.test.sample_model-0.0.1").exists())
-          assert(new File(tempServerDir, "models/instances/"
-              + "org.kiji.test.sample_model-0.0.1=org.kiji.test.sample_model-0.0.2").exists())
-
-          assert(new File(tempServerDir, "models/webapps/"
-              + "org.kiji.test.sample_model-0.0.1.war").exists())
-          assert(new File(tempServerDir, "models/webapps/"
-              + "org.kiji.test.sample_model-0.0.1.war.loc").exists())
-          assert(!new File(tempServerDir, "models/webapps/"
-              + "org.kiji.test.sample_model-0.0.2.war").exists())
-
+            assert(new File(tempServerDir, "models/webapps/"
+                + "org.kiji.test.sample_model-0.0.1.war").exists())
+            assert(new File(tempServerDir, "models/webapps/"
+                + "org.kiji.test.sample_model-0.0.1.war.loc").exists())
+            assert(!new File(tempServerDir, "models/webapps/"
+                + "org.kiji.test.sample_model-0.0.2.war").exists())
+          }
+          TestUtils.tryWaitingForAsyncOperation(test(), 10 * 1000)
           writer.put(eid, "model", "production_ready", false)
           TestUtils.scan(server)
-          assert(!new File(tempServerDir, "models/instances/"
-              + "org.kiji.test.sample_model-0.0.2=org.kiji.test.sample_model-0.0.2").exists())
+          def test2() {
+            assert(!new File(tempServerDir, "models/instances/"
+                + "org.kiji.test.sample_model-0.0.2=org.kiji.test.sample_model-0.0.2").exists())
+          }
+          TestUtils.tryWaitingForAsyncOperation(test2(), 10 * 1000)
         } finally {
           server.stop()
         }
@@ -240,17 +254,17 @@ class TestModelRepoScannerServlet extends KijiClientTest {
         }
       }
       TestUtils.scan(server)
-
-      assert(new File(tempServerDir, "models/instances/"
-          + "org.kiji.test.sample_model-0.0.1=org.kiji.test.sample_model-0.0.1").exists())
-
-      assert(new File(tempServerDir, "models/instances/"
-          + "org.kiji.test.sample_model-0.0.1=org.kiji.test.sample_model-0.0.2").exists())
-
-      assert(new File(tempServerDir, "models/webapps/"
-          + "org.kiji.test.sample_model-0.0.1.war").exists())
-      assert(!new File(tempServerDir, "models/webapps/"
-          + "org.kiji.test.sample_model-0.0.2.war").exists())
+      def test() {
+        assert(new File(tempServerDir, "models/instances/"
+            + "org.kiji.test.sample_model-0.0.1=org.kiji.test.sample_model-0.0.1").exists())
+        assert(new File(tempServerDir, "models/instances/"
+            + "org.kiji.test.sample_model-0.0.1=org.kiji.test.sample_model-0.0.2").exists())
+        assert(new File(tempServerDir, "models/webapps/"
+            + "org.kiji.test.sample_model-0.0.1.war").exists())
+        assert(!new File(tempServerDir, "models/webapps/"
+            + "org.kiji.test.sample_model-0.0.2.war").exists())
+      }
+      TestUtils.tryWaitingForAsyncOperation(test(), 10 * 1000)
     } finally {
       server.stop()
     }

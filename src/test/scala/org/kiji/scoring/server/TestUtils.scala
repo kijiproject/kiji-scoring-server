@@ -27,6 +27,9 @@ import java.util.jar.JarEntry
 import java.util.jar.JarOutputStream
 import scala.collection.JavaConverters.mapAsJavaMapConverter
 import scala.collection.JavaConverters.seqAsJavaListConverter
+import scala.util.control.Breaks.break
+import scala.util.control.Breaks.breakable
+import scala.util.control.ControlThrowable
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.google.common.io.Files
@@ -38,6 +41,7 @@ import org.kiji.express.flow.util.ResourceUtil.doAndClose
 import org.kiji.modelrepo.tools.DeployModelRepoTool
 import org.kiji.schema.Kiji
 import org.kiji.schema.KijiURI
+
 
 object TestUtils {
   val artifactName = "org.kiji.test.sample_model"
@@ -173,6 +177,51 @@ object TestUtils {
       get.releaseConnection()
     }
     server.overlayedProvider.scan()
-    Thread.sleep(2000)
+  }
+
+  /**
+   * Try to perform an operation which depends on an asynchronous background process. Will attempt
+   * the operation repeatedly until it succeeds or the max wait time has elapsed.
+   *
+   * @param op to try.
+   * @param maxWaitTimeMillis before failure.
+   */
+  def tryWaitingForAsyncOperation(op: => Unit, maxWaitTimeMillis: Long): Unit = {
+    val startTime: Long = System.currentTimeMillis()
+    breakable {
+      try {
+        op
+        break()
+      } catch {
+        case ct: ControlThrowable => throw ct
+        case e: Exception => if (System.currentTimeMillis() - startTime > maxWaitTimeMillis) throw e
+      }
+    }
+  }
+
+  /**
+   * Try to perform an operation which depends on an asynchronous background process. Will attempt
+   * the operation repeatedly until it throws the expected exception or the max wait time has
+   * elapsed.
+   *
+   * @param op to try.
+   * @param maxWaitTimeMillis before failure.
+   * @tparam T type of the expected exception.
+   */
+  def tryWaitingForAsyncOperationExpectingException[T <: Exception](
+      op: => Unit,
+      maxWaitTimeMillis: Long
+  ): Unit = {
+    val startTime: Long = System.currentTimeMillis()
+    breakable {
+      try {
+        op
+        if (System.currentTimeMillis() - startTime > maxWaitTimeMillis) {
+          throw new RuntimeException("Operation did not throw expected exception within timeout.")
+        }
+      } catch {
+        case e: T => break()
+      }
+    }
   }
 }
