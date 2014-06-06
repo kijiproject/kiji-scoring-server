@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <!--
     (c) Copyright 2013 WibiData, Inc.
 
@@ -40,7 +41,7 @@
     <kiji-express.version>2.0.3</kiji-express.version>
     <kiji-modeling.version>0.9.0</kiji-modeling.version>
     <kiji-mapreduce.version>1.2.8</kiji-mapreduce.version>
-    <kiji-model-repo.version>0.8.0</kiji-model-repo.version>
+    <kiji-model-repo.version>0.9.0</kiji-model-repo.version>
     <fake-hbase.version>0.1.5</fake-hbase.version>
     <jackson.version>2.3.2</jackson.version>
     <jetty.version>8.1.12.v20130726</jetty.version>

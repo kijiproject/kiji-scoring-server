@@ -47,15 +47,19 @@ object TestUtils {
   val artifactName = "org.kiji.test.sample_model"
 
   val modelContainerTemplate =
-    """{
-      |  "model_name": "name",
-      |  "model_version": "1.0.0",
-      |  "score_function_class": "org.kiji.scoring.server.DummyScoreFunction",
-      |  "parameters": {},
-      |  "table_uri": "%s",
-      |  "column_name": "%s",
-      |  "record_version": "model_container-0.1.0"
-      |}
+    """
+        {
+          "model_name": "name",
+          "model_version": "1.0.0",
+          "scoring_parameters": {
+            "score_function_class": "org.kiji.scoring.server.DummyScoreFunction",
+            "parameters": {},
+            "descriptions":{},
+            "table_uri": "%s",
+            "attached_column": "%s"
+          },
+          "record_version": "model_container-0.1.0"
+        }
     """.stripMargin
 
   /**

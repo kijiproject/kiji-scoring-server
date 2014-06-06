@@ -323,14 +323,15 @@ class ModelRepoScannerServlet extends HttpServlet with Runnable {
       MODEL_NAME -> artifact.getFullyQualifiedName,
       CONTEXT_PATH -> contextPath,
       GenericScoringServlet.ATTACHED_COLUMN_KEY ->
-        model.getModelContainer.getColumnName,
+        model.getModelContainer.getScoringParameters.getAttachedColumn(),
       GenericScoringServlet.SCORE_FUNCTION_CLASS_KEY ->
-        model.getModelContainer.getScoreFunctionClass,
+        model.getModelContainer.getScoringParameters.getScoreFunctionClass,
       GenericScoringServlet.TABLE_URI_KEY ->
-        model.getModelContainer.getTableUri,
+        model.getModelContainer.getScoringParameters.getTableUri,
       GenericScoringServlet.RECORD_PARAMETERS_KEY ->
         GenericScoringServlet.GSON.toJson(
-          model.getModelContainer.getParameters, classOf[JMap[String, String]]))
+          model.getModelContainer.getScoringParameters.getParameters,
+          classOf[JMap[String, String]]))
 
     deployedWarFiles.get(model.getLocation) match {
       case Some(templateName: String) => {
