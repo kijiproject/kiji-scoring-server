@@ -112,6 +112,7 @@ object TestUtils {
     new File(tempModelDir, "models/webapps").mkdirs()
     new File(tempModelDir, "models/instances").mkdirs()
     new File(tempModelDir, "models/templates").mkdirs()
+    new File(tempModelDir, "logs").mkdirs()
 
     tempModelDir.deleteOnExit()
 

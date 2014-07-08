@@ -63,7 +63,8 @@ if [ -z "$PIDFILE" ]; then
 fi
 
 kiji_jar=$(echo ${BASEDIR}/lib/kiji-scoring-server*.jar)
-scoring_server_cp="${kiji_jar}:${BASEDIR}/lib/*:${KIJI_CLASSPATH}"
+# Build the scoring_server_cp.  Does NOT respect $KIJI_CLASSPATH env var.
+scoring_server_cp="${kiji_jar}:${BASEDIR}/lib/*"
 
 # create logs directory
 mkdir -p ${BASEDIR}/logs

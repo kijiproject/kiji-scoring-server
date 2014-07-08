@@ -75,6 +75,13 @@ final case class ServerConfiguration(
 final class ScoringServer private(baseDir: File, serverConfig: ServerConfiguration) {
   import ScoringServer._
 
+  // Error out if this ScoringServer was started in the wrong location and/or files it needs are
+  // missing.
+  val missingFiles: Set[String] = checkIfStartedInProperLocation(baseDir)
+  if (!(missingFiles.size == 0)) {
+    sys.error("Missing files: %s".format(missingFiles.mkString(", ")))
+  }
+
   val modelRepoURI: KijiURI = KijiURI.newBuilder(serverConfig.repo_uri).build()
   withKiji(modelRepoURI, HBaseConfiguration.create()) { kiji =>
     val baseURL = Bytes.toString(kiji.getSystemTable.getValue(
@@ -173,14 +180,13 @@ object ScoringServer {
   val LOGS_FOLDER: String = "logs"
   val CONF_FOLDER: String = "conf"
 
+  /**
+   * Main entry point for the scoring server.
+   *
+   * @param args Has one optional argument: a path on the filesystem to the scoring server home,
+   *     where the models live.  If unspecified, uses the current directory.
+   */
   def main(args: Array[String]): Unit = {
-
-    // Check that we started in the right location else bomb out
-    val missingFiles: Set[String] = checkIfStartedInProperLocation()
-    if (!(missingFiles.size == 0)) {
-      sys.error("Missing files: %s".format(missingFiles.mkString(", ")))
-    }
-
 
     val scoringServer = if (args.isEmpty) {
       ScoringServer(new File("."))
@@ -219,9 +225,10 @@ object ScoringServer {
    * Checks that the server is started in the right location by ensuring the presence of a few key
    * directories under the conf, models and logs folder.
    *
+   * @param baseDir The base directory this server was started in.
    * @return whether or not the key set of folders exist or not.
    */
-  def checkIfStartedInProperLocation(): Set[String] = {
+  def checkIfStartedInProperLocation(baseDir: File): Set[String] = {
     // Get the list of required files which do not exist.
     Set(
         CONF_FOLDER + "/" + CONF_FILE,
@@ -230,7 +237,7 @@ object ScoringServer {
         MODELS_FOLDER + "/templates",
         LOGS_FOLDER
     ).filter {
-      (fileString: String) => !new File(fileString).exists()
+      (fileString: String) => !{new File(baseDir, fileString)}.exists()
     }
   }
 
