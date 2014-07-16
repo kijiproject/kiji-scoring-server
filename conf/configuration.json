@@ -1,6 +1,6 @@
 {
-  "port": 8080,
+  "port": 7080,
   "repo_uri": "kiji://.env/default/",
-  "repo_scan_interval": 2,
+  "repo_scan_interval": 0,
   "num_acceptors": 2
 }

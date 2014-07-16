@@ -1,6 +1,10 @@
 
                               Kiji Scoring Server Release Notes
 
+Version 0.16.0
+  * SCORSRVR-30. ScoringServer now uses a default port of 7080 instead of 8080.  This will keep the
+      default configuration from conflicting with KijiREST.
+
 Version 0.11.0
   * SCORSRVR-5. ScoringServer interaction points have changed to include several commands under
       {BASE_URL}/admin including /admin/list /admin/get /admin/ping /admin/scan more information can

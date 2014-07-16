@@ -59,7 +59,7 @@ an already deployed model ready for deployment, execute:
 2. After a few seconds, the model's artifact will be fetched from the model repository
 and deployed into the scoring server and made available for scoring. The url for applying the model
 named "org.kiji.my-model" with version 1.0.0 to the entity "ophie@kiji.org"
-is http://localhost:8080/models/org/kiji/my-model/1.0.0/?eid=%22ophie@kiji.org%22. Normally this
+is http://localhost:7080/models/org/kiji/my-model/1.0.0/?eid=%22ophie@kiji.org%22. Normally this
 URL would be accessed by the FreshKijiTableReader; however, this can be accessed in the browser
 to see the behavior of the scoring server.
 3. To disable this model from the scoring server, update the production-ready flag
@@ -67,5 +67,5 @@ to false by executing:
 <pre>
   kiji model-repo update org.kiji.my-model-1.0.0 --production-ready=false --message="Disabling this model from the scoring server."
 </pre>
-4. Now when you try to access http://localhost:8080/models/org/kiji/my-model/1.0.0/?eid=%22ophie@kiji.org%22 you should
+4. Now when you try to access http://localhost:7080/models/org/kiji/my-model/1.0.0/?eid=%22ophie@kiji.org%22 you should
 get a 404 not found.
