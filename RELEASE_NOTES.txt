@@ -2,6 +2,7 @@
                               Kiji Scoring Server Release Notes
 
 Version 0.16.0
+  * POM-40. Require JDK 7 to compile Kiji projects.
   * SCORSRVR-30. ScoringServer now uses a default port of 7080 instead of 8080.  This will keep the
       default configuration from conflicting with KijiREST.
 
