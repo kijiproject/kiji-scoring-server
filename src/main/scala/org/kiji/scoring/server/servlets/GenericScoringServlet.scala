@@ -55,6 +55,7 @@ import org.kiji.schema.util.JsonEntityIdParser
 import org.kiji.scoring.ScoreFunction
 import org.kiji.scoring.ScoreFunction.TimestampedValue
 import org.kiji.scoring.impl.InternalFreshenerContext
+import org.kiji.scoring.impl.NullCounterManager
 import org.kiji.scoring.server.KijiScoringServerCell
 
 /**
@@ -100,16 +101,20 @@ class GenericScoringServlet[T] extends HttpServlet {
     recordParameters = GSON.fromJson(
       getServletConfig.getInitParameter(RECORD_PARAMETERS_KEY),
       classOf[JMap[String, String]])
+    // TODO: SCORSRVR-32 Replace this NullCounterManager with a configurable option.
     val setupContext: InternalFreshenerContext =
-      InternalFreshenerContext.create(attachedColumn, recordParameters)
+        InternalFreshenerContext.create(attachedColumn, recordParameters, NullCounterManager.get)
     kvFactory = KeyValueStoreReaderFactory.create(scoreFunction.getRequiredStores(setupContext))
     setupContext.setKeyValueStoreReaderFactory(kvFactory)
     scoreFunction.setup(setupContext)
   }
 
   override def destroy() {
-    val cleanupContext: InternalFreshenerContext =
-      InternalFreshenerContext.create(attachedColumn, recordParameters, kvFactory)
+    val cleanupContext: InternalFreshenerContext = InternalFreshenerContext.create(
+        attachedColumn,
+        recordParameters,
+        NullCounterManager.get,
+        kvFactory)
     scoreFunction.cleanup(cleanupContext)
     kvFactory.close()
     readerPool.close()
@@ -168,11 +173,12 @@ class GenericScoringServlet[T] extends HttpServlet {
     entityId: JEntityId
     ): KijiScoringServerCell = {
     val context: InternalFreshenerContext = InternalFreshenerContext.create(
-      clientDataRequest,
-      attachedColumn,
-      recordParameters,
-      parameterOverrides,
-      kvFactory)
+        clientDataRequest,
+        attachedColumn,
+        recordParameters,
+        parameterOverrides,
+        NullCounterManager.get,
+        kvFactory)
 
     val rowData: KijiRowData = {
       val reader: KijiTableReader = readerPool.borrowObject()
