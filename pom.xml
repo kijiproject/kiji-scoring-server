@@ -36,7 +36,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <kiji-schema.version>1.5.0</kiji-schema.version>
-    <kiji-scoring.version>0.17.0-SNAPSHOT</kiji-scoring.version>
+    <kiji-scoring.version>0.18.0-SNAPSHOT</kiji-scoring.version>
     <kiji-express.version>2.0.4</kiji-express.version>
     <kiji-modeling.version>0.10.0</kiji-modeling.version>
     <kiji-mapreduce.version>1.2.9</kiji-mapreduce.version>
